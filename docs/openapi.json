@@ -1,70 +1,2131 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Freightnaut Docs local pilot",
-    "version": "0.1.0",
-    "description": "Local test draft API. No live issuance or authentication. Bind to loopback only."
+    "title": "Freightnaut Docs",
+    "version": "0.2.0",
+    "description": "Server-side session authentication and tenant-scoped APIs. Mutations require the exact configured Origin and X-CSRF-Token from /api/auth/session. Production cookie name is __Host-freightnaut_session; local HTTP development omits the __Host- prefix. No live issuance endpoint exists."
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:3001"
+      "url": "/"
     }
   ],
   "paths": {
     "/api/health": {
       "get": {
         "operationId": "health",
+        "summary": "Process health",
+        "security": [],
+        "parameters": [],
         "responses": {
           "200": {
-            "description": "Local service status"
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
           }
         }
       }
     },
-    "/api/sample": {
+    "/api/ready": {
       "get": {
-        "operationId": "sampleShipment",
+        "operationId": "ready",
+        "summary": "Database readiness",
+        "security": [],
+        "parameters": [],
         "responses": {
           "200": {
-            "description": "Sample shipment",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Shipment"
-                }
-              }
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/auth/providers": {
+      "get": {
+        "operationId": "providers",
+        "summary": "Public identity provider names",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/auth/login/{providerId}": {
+      "get": {
+        "operationId": "login",
+        "summary": "Start OIDC Authorization Code flow with PKCE",
+        "security": [],
+        "parameters": [
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
+        ],
+        "responses": {
+          "302": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
         }
       }
     },
-    "/api/validate": {
+    "/api/auth/callback": {
+      "get": {
+        "operationId": "callback",
+        "summary": "Consume the one-use login transaction; set HttpOnly session cookie",
+        "security": [],
+        "parameters": [
+          {
+            "name": "code",
+            "schema": {
+              "type": "string"
+            },
+            "in": "query"
+          },
+          {
+            "name": "state",
+            "schema": {
+              "type": "string"
+            },
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/auth/session": {
+      "get": {
+        "operationId": "session",
+        "summary": "Current identity, CSRF token, memberships, permissions and scoped shipment grants",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
       "post": {
-        "operationId": "validateShipment",
+        "operationId": "logout",
+        "summary": "Destroy the current server-side session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/settings": {
+      "get": {
+        "operationId": "settings",
+        "summary": "Resolved settings, inherited values, source and lock provenance",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveSettings",
+        "summary": "Save versioned settings; requires tenant.settings.write and administrative MFA",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Shipment"
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "overrides": {
+                    "type": "object",
+                    "properties": {
+                      "customFields": {
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "text",
+                                "number",
+                                "date",
+                                "select",
+                                "checkbox"
+                              ]
+                            },
+                            "help": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "required": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "hidden": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "options": {
+                              "default": [],
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            },
+                            "defaultValue": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "label",
+                            "type",
+                            "help",
+                            "required",
+                            "hidden",
+                            "options"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "brandName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "primaryColor": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$"
+                      },
+                      "accentColor": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$"
+                      },
+                      "locale": {
+                        "type": "string"
+                      },
+                      "timeZone": {
+                        "type": "string"
+                      },
+                      "defaultCurrency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "originCountry": {
+                        "type": "string",
+                        "pattern": "^([A-Z]{2})?$"
+                      },
+                      "destinationCountry": {
+                        "type": "string",
+                        "pattern": "^([A-Z]{2})?$"
+                      },
+                      "defaultIncoterm": {
+                        "type": "string",
+                        "enum": [
+                          "EXW",
+                          "FCA",
+                          "CPT",
+                          "CIP",
+                          "DAP",
+                          "DPU",
+                          "DDP",
+                          "FAS",
+                          "FOB",
+                          "CFR",
+                          "CIF"
+                        ]
+                      },
+                      "exporter": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "address": {
+                            "type": "string",
+                            "maxLength": 1500
+                          },
+                          "taxId": {
+                            "type": "string",
+                            "maxLength": 100
+                          }
+                        },
+                        "required": ["name", "address", "taxId"],
+                        "additionalProperties": false
+                      },
+                      "packageLabel": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "defaultUnit": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20
+                      },
+                      "hsCodeDigits": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "const": 6
+                          },
+                          {
+                            "type": "number",
+                            "const": 8
+                          },
+                          {
+                            "type": "number",
+                            "const": 10
+                          }
+                        ]
+                      },
+                      "buyerPoRequired": {
+                        "type": "boolean"
+                      },
+                      "declaration": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "documentTitles": {
+                        "type": "object",
+                        "properties": {
+                          "invoice": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "packing-list": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        },
+                        "required": ["invoice", "packing-list"],
+                        "additionalProperties": false
+                      },
+                      "secondaryTitles": {
+                        "type": "object",
+                        "properties": {
+                          "invoice": {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          "packing-list": {
+                            "type": "string",
+                            "maxLength": 100
+                          }
+                        },
+                        "required": ["invoice", "packing-list"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "locks": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "customFields",
+                        "brandName",
+                        "primaryColor",
+                        "accentColor",
+                        "locale",
+                        "timeZone",
+                        "defaultCurrency",
+                        "originCountry",
+                        "destinationCountry",
+                        "defaultIncoterm",
+                        "exporter",
+                        "packageLabel",
+                        "defaultUnit",
+                        "hsCodeDigits",
+                        "buyerPoRequired",
+                        "declaration",
+                        "documentTitles",
+                        "secondaryTitles"
+                      ]
+                    }
+                  }
+                },
+                "required": ["revision", "overrides", "locks"],
+                "additionalProperties": false
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Pilot validation issues with field paths"
-          },
-          "400": {
-            "description": "Malformed shipment"
           }
         }
       }
     },
-    "/api/documents/{type}/pdf": {
+    "/api/tenants/{tenantId}/roles": {
+      "get": {
+        "operationId": "roles",
+        "summary": "Workspace roles and permission catalog; requires tenant.members.manage",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRole",
+        "summary": "Create a custom role within the actor permission ceiling",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "permissions": {
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "partner.accounts.manage",
+                        "tenant.settings.write",
+                        "tenant.members.manage",
+                        "tenant.roles.manage",
+                        "tenant.audit.read",
+                        "shipment.read",
+                        "shipment.write",
+                        "document.download"
+                      ]
+                    }
+                  }
+                },
+                "required": ["name", "permissions"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/roles/{roleId}": {
+      "put": {
+        "operationId": "updateRole",
+        "summary": "Edit a non-reserved custom role",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "permissions": {
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "partner.accounts.manage",
+                        "tenant.settings.write",
+                        "tenant.members.manage",
+                        "tenant.roles.manage",
+                        "tenant.audit.read",
+                        "shipment.read",
+                        "shipment.write",
+                        "document.download"
+                      ]
+                    }
+                  }
+                },
+                "required": ["name", "permissions"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/members": {
+      "get": {
+        "operationId": "members",
+        "summary": "Workspace members; requires tenant.members.manage",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/members/{membershipId}": {
+      "patch": {
+        "operationId": "updateMember",
+        "summary": "Change a role or revoke access; protects the last administrator",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "membershipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roleId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["active", "revoked"]
+                  }
+                },
+                "required": ["status"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/invitations": {
+      "get": {
+        "operationId": "invitations",
+        "summary": "Invitations without their secret tokens",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      },
+      "post": {
+        "operationId": "inviteMember",
+        "summary": "Create a verified-email and issuer-bound invitation; link is returned once",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "roleId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": ["email", "roleId"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/invitations/{invitationId}": {
+      "delete": {
+        "operationId": "revokeInvitation",
+        "summary": "Revoke an unaccepted invitation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invitationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/invitations/accept": {
+      "post": {
+        "operationId": "acceptInvitation",
+        "summary": "Redeem an invitation; recheck issuer, verified email and inviter authority",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 40,
+                    "maxLength": 128
+                  }
+                },
+                "required": ["token"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/audit": {
+      "get": {
+        "operationId": "audit",
+        "summary": "Last 100 scoped audit events; requires tenant.audit.read",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/accounts": {
+      "get": {
+        "operationId": "accounts",
+        "summary": "Customer accounts; requires partner.accounts.manage",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAccount",
+        "summary": "Create an account and invite its first administrator without implicit caller membership",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "ownerEmail": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  }
+                },
+                "required": ["name", "ownerEmail"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/partners": {
+      "post": {
+        "operationId": "createPartner",
+        "summary": "Platform operator provisions a partner and first-administrator invitation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "ownerEmail": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  }
+                },
+                "required": ["name", "ownerEmail"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments": {
+      "get": {
+        "operationId": "shipments",
+        "summary": "List account shipments; requires shipment.read",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "in": "query"
+          },
+          {
+            "name": "before",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createShipment",
+        "summary": "Persist a new account draft; requires shipment.write",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "custom": {
+                    "default": {},
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  },
+                  "id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "buyerPo": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "exporter": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "address": {
+                        "type": "string",
+                        "maxLength": 1500
+                      },
+                      "taxId": {
+                        "type": "string",
+                        "maxLength": 100
+                      }
+                    },
+                    "required": ["name", "address", "taxId"],
+                    "additionalProperties": false
+                  },
+                  "consignee": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "address": {
+                        "type": "string",
+                        "maxLength": 1500
+                      },
+                      "taxId": {
+                        "type": "string",
+                        "maxLength": 100
+                      }
+                    },
+                    "required": ["name", "address", "taxId"],
+                    "additionalProperties": false
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "originCountry": {
+                    "type": "string",
+                    "pattern": "^([A-Z]{2})?$"
+                  },
+                  "destinationCountry": {
+                    "type": "string",
+                    "pattern": "^([A-Z]{2})?$"
+                  },
+                  "incoterm": {
+                    "type": "string",
+                    "enum": [
+                      "EXW",
+                      "FCA",
+                      "CPT",
+                      "CIP",
+                      "DAP",
+                      "DPU",
+                      "DDP",
+                      "FAS",
+                      "FOB",
+                      "CFR",
+                      "CIF"
+                    ]
+                  },
+                  "portOfLoading": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "portOfDischarge": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "packages": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000
+                  },
+                  "netKg": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "grossKg": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "items": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "hsCode": {
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        "unit": {
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        "unitPrice": {
+                          "type": "string",
+                          "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "description",
+                        "hsCode",
+                        "quantity",
+                        "unit",
+                        "unitPrice"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "custom",
+                  "id",
+                  "date",
+                  "buyerPo",
+                  "exporter",
+                  "consignee",
+                  "currency",
+                  "originCountry",
+                  "destinationCountry",
+                  "incoterm",
+                  "portOfLoading",
+                  "portOfDischarge",
+                  "packages",
+                  "netKg",
+                  "grossKg",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}": {
+      "get": {
+        "operationId": "shipment",
+        "summary": "Read a shipment through membership or a valid named-shipment grant",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveShipment",
+        "summary": "Persist a draft with optimistic concurrency; requires shipment.write",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "custom": {
+                        "default": {},
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                        },
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 2000
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        }
+                      },
+                      "id": {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "date": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "buyerPo": {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "exporter": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "address": {
+                            "type": "string",
+                            "maxLength": 1500
+                          },
+                          "taxId": {
+                            "type": "string",
+                            "maxLength": 100
+                          }
+                        },
+                        "required": ["name", "address", "taxId"],
+                        "additionalProperties": false
+                      },
+                      "consignee": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "address": {
+                            "type": "string",
+                            "maxLength": 1500
+                          },
+                          "taxId": {
+                            "type": "string",
+                            "maxLength": 100
+                          }
+                        },
+                        "required": ["name", "address", "taxId"],
+                        "additionalProperties": false
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "originCountry": {
+                        "type": "string",
+                        "pattern": "^([A-Z]{2})?$"
+                      },
+                      "destinationCountry": {
+                        "type": "string",
+                        "pattern": "^([A-Z]{2})?$"
+                      },
+                      "incoterm": {
+                        "type": "string",
+                        "enum": [
+                          "EXW",
+                          "FCA",
+                          "CPT",
+                          "CIP",
+                          "DAP",
+                          "DPU",
+                          "DDP",
+                          "FAS",
+                          "FOB",
+                          "CFR",
+                          "CIF"
+                        ]
+                      },
+                      "portOfLoading": {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "portOfDischarge": {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "packages": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      },
+                      "netKg": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100000000
+                      },
+                      "grossKg": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100000000
+                      },
+                      "items": {
+                        "maxItems": 500,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            "description": {
+                              "type": "string",
+                              "maxLength": 2000
+                            },
+                            "hsCode": {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            "quantity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100000000
+                            },
+                            "unit": {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            "unitPrice": {
+                              "type": "string",
+                              "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "description",
+                            "hsCode",
+                            "quantity",
+                            "unit",
+                            "unitPrice"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "custom",
+                      "id",
+                      "date",
+                      "buyerPo",
+                      "exporter",
+                      "consignee",
+                      "currency",
+                      "originCountry",
+                      "destinationCountry",
+                      "incoterm",
+                      "portOfLoading",
+                      "portOfDischarge",
+                      "packages",
+                      "netKg",
+                      "grossKg",
+                      "items"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["version", "data"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}/documents/{type}/pdf": {
       "post": {
         "operationId": "downloadDraft",
+        "summary": "Render a draft; requires shipment.read and document.download",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
         "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "type",
             "in": "path",
@@ -73,21 +2134,19 @@
               "type": "string",
               "enum": ["invoice", "packing-list"]
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Shipment"
-              }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
-        },
+        ],
         "responses": {
           "200": {
-            "description": "Test draft PDF; data blockers do not prevent draft download",
+            "description": "Draft PDF from the authorized persisted shipment version",
             "content": {
               "application/pdf": {
                 "schema": {
@@ -98,23 +2157,343 @@
             }
           },
           "400": {
-            "description": "Invalid document type or shipment"
+            "description": "Invalid input"
           },
-          "503": {
-            "description": "Chromium rendering unavailable"
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["version"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}/collaborators": {
+      "get": {
+        "operationId": "collaborators",
+        "summary": "Named-shipment grants; requires tenant.members.manage",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      },
+      "post": {
+        "operationId": "inviteCollaborator",
+        "summary": "Invite a collaborator with explicit read and optional download permissions",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "allowDownload": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": ["email", "allowDownload"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}/collaborators/{grantId}": {
+      "delete": {
+        "operationId": "revokeCollaborator",
+        "summary": "Revoke a named-shipment grant",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "grantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        }
+      }
+    },
+    "/api/platform/invitations/{invitationId}": {
+      "delete": {
+        "operationId": "revokePlatformInvitation",
+        "summary": "Platform operator revokes an unaccepted partner administrator invitation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invitationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
           }
         }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-freightnaut_session"
+      }
+    },
     "schemas": {
       "Shipment": {
         "type": "object",
         "properties": {
+          "custom": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
           "id": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 100
           },
           "date": {
@@ -166,11 +2545,31 @@
           },
           "currency": {
             "type": "string",
-            "const": "USD"
+            "pattern": "^[A-Z]{3}$"
+          },
+          "originCountry": {
+            "type": "string",
+            "pattern": "^([A-Z]{2})?$"
+          },
+          "destinationCountry": {
+            "type": "string",
+            "pattern": "^([A-Z]{2})?$"
           },
           "incoterm": {
             "type": "string",
-            "enum": ["CIF", "FOB", "EXW"]
+            "enum": [
+              "EXW",
+              "FCA",
+              "CPT",
+              "CIP",
+              "DAP",
+              "DPU",
+              "DDP",
+              "FAS",
+              "FOB",
+              "CFR",
+              "CIF"
+            ]
           },
           "portOfLoading": {
             "type": "string",
@@ -202,7 +2601,9 @@
               "type": "object",
               "properties": {
                 "id": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
                 },
                 "description": {
                   "type": "string",
@@ -239,12 +2640,15 @@
           }
         },
         "required": [
+          "custom",
           "id",
           "date",
           "buyerPo",
           "exporter",
           "consignee",
           "currency",
+          "originCountry",
+          "destinationCountry",
           "incoterm",
           "portOfLoading",
           "portOfDischarge",
@@ -252,6 +2656,232 @@
           "netKg",
           "grossKg",
           "items"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceSettings": {
+        "type": "object",
+        "properties": {
+          "customFields": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["text", "number", "date", "select", "checkbox"]
+                },
+                "help": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 500
+                },
+                "required": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "hidden": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "options": {
+                  "default": [],
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "defaultValue": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "type",
+                "help",
+                "required",
+                "hidden",
+                "options"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "brandName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "primaryColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "accentColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "defaultCurrency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "originCountry": {
+            "type": "string",
+            "pattern": "^([A-Z]{2})?$"
+          },
+          "destinationCountry": {
+            "type": "string",
+            "pattern": "^([A-Z]{2})?$"
+          },
+          "defaultIncoterm": {
+            "type": "string",
+            "enum": [
+              "EXW",
+              "FCA",
+              "CPT",
+              "CIP",
+              "DAP",
+              "DPU",
+              "DDP",
+              "FAS",
+              "FOB",
+              "CFR",
+              "CIF"
+            ]
+          },
+          "exporter": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "address": {
+                "type": "string",
+                "maxLength": 1500
+              },
+              "taxId": {
+                "type": "string",
+                "maxLength": 100
+              }
+            },
+            "required": ["name", "address", "taxId"],
+            "additionalProperties": false
+          },
+          "packageLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "defaultUnit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "hsCodeDigits": {
+            "anyOf": [
+              {
+                "type": "number",
+                "const": 6
+              },
+              {
+                "type": "number",
+                "const": 8
+              },
+              {
+                "type": "number",
+                "const": 10
+              }
+            ]
+          },
+          "buyerPoRequired": {
+            "type": "boolean"
+          },
+          "declaration": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "documentTitles": {
+            "type": "object",
+            "properties": {
+              "invoice": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "packing-list": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            },
+            "required": ["invoice", "packing-list"],
+            "additionalProperties": false
+          },
+          "secondaryTitles": {
+            "type": "object",
+            "properties": {
+              "invoice": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "packing-list": {
+                "type": "string",
+                "maxLength": 100
+              }
+            },
+            "required": ["invoice", "packing-list"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "customFields",
+          "brandName",
+          "primaryColor",
+          "accentColor",
+          "locale",
+          "timeZone",
+          "defaultCurrency",
+          "originCountry",
+          "destinationCountry",
+          "defaultIncoterm",
+          "exporter",
+          "packageLabel",
+          "defaultUnit",
+          "hsCodeDigits",
+          "buyerPoRequired",
+          "declaration",
+          "documentTitles",
+          "secondaryTitles"
         ],
         "additionalProperties": false
       }

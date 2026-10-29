@@ -1,17 +1,47 @@
+name: freightnautdocs-dev
 services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: freightnaut
-      POSTGRES_PASSWORD: localdev
-      POSTGRES_DB: freightnaut
-    ports: ["127.0.0.1:5432:5432"]
-    volumes: ["postgres:/var/lib/postgresql/data"]
+      POSTGRES_USER: ${POSTGRES_USER:?Run npm run setup:local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run npm run setup:local}
+      POSTGRES_DB: ${POSTGRES_DB:?Run npm run setup:local}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Run npm run setup:local}
+    ports: ["127.0.0.1:55432:5432"]
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./infra/postgres-init.sh:/docker-entrypoint-initdb.d/01-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
   redis:
     image: redis:7-alpine
-    ports: ["127.0.0.1:6379:6379"]
-    command: redis-server --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Run npm run setup:local}
+    command:
+      [
+        "sh",
+        "-c",
+        "exec redis-server --appendonly yes --requirepass $$REDIS_PASSWORD",
+      ]
+    ports: ["127.0.0.1:56379:6379"]
     volumes: ["redis:/data"]
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?Run npm run setup:local}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Run npm run setup:local}
+    ports: ["127.0.0.1:8080:8080"]
+    volumes:
+      - keycloak:/opt/keycloak/data
+      - ./.local/keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["127.0.0.1:8025:8025"]
 volumes:
   postgres:
   redis:
+  keycloak:

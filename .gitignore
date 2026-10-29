@@ -4,3 +4,7 @@ dist/
 .DS_Store
 coverage/
 test-results/
+
+.local/
+.env.*
+!.env.example

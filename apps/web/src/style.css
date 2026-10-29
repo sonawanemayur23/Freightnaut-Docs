@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&display=swap");
 :root {
   font-family: "DM Sans", Arial, sans-serif;
   color: #132743;
@@ -995,4 +994,493 @@ label select {
   .preview-canvas {
     height: 427px;
   }
+}
+
+:root {
+  --workspace-primary: #092040;
+  --workspace-accent: #ffad13;
+}
+.sidebar,
+.brand > b,
+.profile,
+.stepper .selected > span {
+  background: var(--workspace-primary);
+}
+.primary {
+  background: var(--workspace-accent);
+}
+.nav.active {
+  border-left-color: var(--workspace-accent);
+}
+.sidebar .nav {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+.brand {
+  width: auto;
+  max-width: 300px;
+}
+.brand strong {
+  white-space: normal;
+}
+.workspace-picker {
+  min-width: 230px;
+}
+.workspace-picker > span {
+  font-size: 9px;
+}
+.workspace-picker select {
+  padding: 6px 9px;
+  font-size: 11px;
+}
+.editor-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #7c8da4;
+}
+.editor-toolbar strong {
+  margin-left: auto;
+}
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #eef2f7;
+  padding: 24px;
+}
+.auth-card {
+  max-width: 480px;
+  width: 100%;
+  padding: 44px;
+  background: white;
+  border: 1px solid #dce5ef;
+  border-radius: 14px;
+  box-shadow: 0 12px 45px #0920400c;
+}
+.auth-card p {
+  color: #718299;
+  line-height: 1.7;
+}
+.auth-mark {
+  background: #092040;
+  color: #ffad13;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  width: 40px;
+  height: 40px;
+  font-weight: bold;
+  font-size: 25px;
+  margin-bottom: 24px;
+}
+.login-link {
+  text-decoration: none;
+  display: flex;
+  justify-content: center;
+  margin: 24px 0;
+  color: #132743;
+}
+.auth-note {
+  font-size: 11px;
+}
+.empty-state {
+  text-align: center;
+  padding: 70px 25px;
+  border: 1px dashed #d6e1ed;
+  border-radius: 9px;
+  background: #fff;
+  margin-top: 20px;
+}
+.empty-state p {
+  color: #8493a8;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.empty-state details {
+  margin: 25px 0;
+  color: #8493a8;
+  font-size: 11px;
+}
+.empty-state code {
+  display: block;
+  margin: 15px 0;
+}
+.admin-card {
+  padding: 24px;
+  background: white;
+  border: 1px solid #dfe7f0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.admin-card > p {
+  color: #8192a8;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.admin-form {
+  max-width: 850px;
+  display: grid;
+  gap: 20px;
+}
+.admin-form h2 {
+  margin: 0;
+}
+.admin-form > p {
+  margin: 0;
+}
+.admin-form > .primary {
+  justify-self: start;
+}
+.form-columns {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.form-columns label {
+  flex: 1;
+  min-width: 180px;
+}
+.admin-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.admin-table th {
+  text-align: left;
+  font-size: 9px;
+  color: #8393a7;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  padding: 12px 10px;
+  border-bottom: 1px solid #dfe7f0;
+}
+.admin-table td {
+  padding: 15px 10px;
+  border-bottom: 1px solid #edf1f7;
+  vertical-align: middle;
+}
+.admin-table small {
+  display: block;
+  color: #8798af;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.admin-table code {
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+.admin-table select {
+  border: 1px solid #dfe7f0;
+  border-radius: 4px;
+  padding: 8px;
+  color: #3d5570;
+  max-width: 220px;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.setting-card {
+  margin: 0;
+}
+.setting-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 19px;
+}
+.setting-label strong {
+  font-size: 12px;
+}
+.source-badge {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 9px;
+  color: #6b83a0;
+  background: #f0f4f9;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+.setting-card input:not([type="checkbox"]),
+.setting-card select,
+.setting-card textarea {
+  width: 100%;
+  border: 1px solid #dfe7ef;
+  border-radius: 5px;
+  padding: 10px;
+  font: inherit;
+  background: white;
+  color: #284260;
+}
+.setting-card input[type="color"] {
+  height: 42px;
+  padding: 4px;
+}
+.nested-fields {
+  display: grid;
+  gap: 13px;
+}
+.setting-actions {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 19px;
+  padding-top: 14px;
+  border-top: 1px solid #edf1f6;
+  flex-wrap: wrap;
+}
+.checkbox-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+.checkbox-label input {
+  width: auto;
+}
+.text-button {
+  color: #5576ba;
+  font-size: 10px;
+  padding: 0;
+}
+.permissions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.invitation-banner {
+  background: #eaf2ff;
+  border: 1px solid #cadcf8;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.invitation-banner > span {
+  margin-right: auto;
+}
+.inline-form {
+  display: flex;
+  gap: 15px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.inline-form > label:first-child {
+  min-width: 220px;
+}
+.inline-form > label:last-child {
+  width: 100%;
+}
+.share-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.invite-result {
+  background: #f4f8ff;
+  border: 1px solid #d6e3f8;
+  padding: 15px;
+  border-radius: 5px;
+}
+.invite-result small {
+  font-size: 9px;
+  color: #8a9cb5;
+}
+.sidebar-bottom {
+  overflow-wrap: anywhere;
+}
+.sidebar-bottom p {
+  font-size: 10px;
+}
+.topbar .top-context {
+  white-space: nowrap;
+}
+.setting-card fieldset:disabled {
+  opacity: 0.65;
+}
+.setting-card textarea {
+  resize: vertical;
+}
+.form-panel input:disabled {
+  color: #536a85;
+  opacity: 1;
+}
+.goods input:disabled {
+  color: #536a85;
+}
+.settings-grid .setting-card {
+  min-width: 0;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+.auth-card button {
+  margin-top: 20px;
+}
+@media (max-width: 1000px) {
+  .sidebar {
+    display: flex;
+    width: 180px;
+  }
+  .workspace-picker {
+    min-width: 190px;
+  }
+  .topbar {
+    gap: 16px;
+  }
+  .brand {
+    max-width: 200px;
+  }
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .work-area {
+    display: flex;
+    flex-direction: column;
+  }
+  .form-panel,
+  .preview-panel {
+    width: 100%;
+  }
+  .preview-panel {
+    max-width: 480px;
+  }
+  .preview-canvas iframe {
+    pointer-events: auto;
+  }
+}
+@media (max-width: 760px) {
+  .sidebar {
+    width: 100%;
+    padding: 8px;
+    flex-direction: row;
+    overflow: auto;
+    gap: 3px;
+  }
+  .sidebar .workspace-label,
+  .sidebar-bottom {
+    display: none;
+  }
+  .sidebar .nav {
+    width: auto;
+    white-space: nowrap;
+    padding: 10px;
+    margin: 0;
+    font-size: 10px;
+  }
+  .sidebar .nav svg {
+    width: 14px;
+  }
+  .shell {
+    flex-direction: column;
+  }
+  .topbar {
+    height: auto;
+    min-height: 80px;
+    flex-wrap: wrap;
+    padding: 12px 15px;
+    gap: 10px;
+  }
+  .brand {
+    max-width: none;
+    flex: 1;
+  }
+  .brand strong {
+    font-size: 15px !important;
+  }
+  .workspace-picker {
+    order: 5;
+    width: 100%;
+    min-width: 0;
+  }
+  .workspace-picker select {
+    width: 100%;
+  }
+  .workspace-picker > span {
+    display: none;
+  }
+  .profile {
+    margin-left: auto;
+  }
+  .editor-toolbar {
+    font-size: 9px;
+    gap: 10px;
+  }
+  .editor-toolbar strong {
+    width: 100%;
+  }
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-card {
+    padding: 16px;
+  }
+  .permissions-grid {
+    grid-template-columns: 1fr;
+  }
+  .auth-card {
+    padding: 28px;
+  }
+  .admin-table {
+    font-size: 10px;
+  }
+  .invitation-banner {
+    flex-wrap: wrap;
+  }
+  .form-columns {
+    align-items: stretch;
+  }
+  .admin-table th,
+  .admin-table td {
+    padding: 10px 7px;
+  }
+  .admin-table select {
+    max-width: 140px;
+  }
+  .preview-panel {
+    align-self: center;
+  }
+  .top-context {
+    display: none;
+  }
+}
+
+.custom-definitions {
+  display: grid;
+  gap: 16px;
+}
+.custom-definition {
+  border: 1px solid #e1e8f0;
+  padding: 16px;
+  border-radius: 5px;
+  display: grid;
+  gap: 14px;
+}
+.custom-definition .form-columns label {
+  min-width: 120px;
+}
+.custom-definition .checkbox-label {
+  flex-direction: row;
+}
+.setting-card:has(.custom-definitions) {
+  grid-column: 1/-1;
 }

@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
-  sampleShipment,
   totalAmount,
   lineAmount,
   validateShipment,
   renderDocument,
   shipmentSchema,
 } from "./index";
+import { sampleShipment } from "./fixtures";
 describe("shipment engine", () => {
   it("calculates sample invoice and rounds decimal money without binary float drift", () => {
     expect(totalAmount(sampleShipment)).toBe("23952.00");

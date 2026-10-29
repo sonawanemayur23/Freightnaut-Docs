@@ -1,26 +1,21 @@
-# Implementation roadmap
+# Release plan
 
-## 1. Current local slice
+## Implemented: identity, access and persisted customization
 
-Editable shipment → shared validation → two document previews → Chromium draft PDFs.
-Acceptance: sample invoice total USD 23,952.00; packing list excludes prices; invalid goods/weights identify field paths; untrusted values are escaped; malformed HTTP payloads are rejected.
+OIDC, server sessions, MFA-gated administration, tenant memberships, bounded custom roles, verified invitations, scoped collaborators, Postgres/RLS, versioned configuration with locks, custom fields, persisted shipment drafts, concurrency protection, audit and authorized PDFs. Local identity infrastructure is real; production Auth0 credentials have not been provisioned.
 
-## 2. Persisted, isolated pilot
+## Next: document lifecycle and jobs
 
-Introduce Postgres migrations for partners, accounts, memberships, shipments, document sets and immutable document versions. Derive tenant scope from authenticated membership, never from arbitrary client IDs. Verify isolation in integration tests. Add API draft CRUD and optimistic concurrency before replacing browser persistence. Keep browser preview derived from the same domain renderer.
+Move Chromium into a bounded BullMQ worker. Persist job state and an outbox in Postgres; use idempotent job/issue keys. Store files privately with authorized expiring downloads. Introduce transactional document numbering, immutable input/template/rule snapshots, PDF hashes, amendment reasons and retained originals. A failed render cannot reuse an allocated number or report a successful issuance.
 
-## 3. Reliable rendering and issuance
+## Then: domain-validated rules and customization
 
-Move Chromium to a bounded BullMQ worker. Postgres owns job status and an outbox so enqueue failure cannot lose work. Retry by stable job key. Private object storage holds outputs/assets; signed downloads require account authorization. Implement transactional series allocation, idempotent issue requests, warning acknowledgements, immutable input/template/rule snapshots, file hashes and amendments. Failed rendering must not allow a reserved number to be reused.
+Versioned JSON Schema rule packs, explicit conflict/precedence semantics, effective dates and reviewed sources. Add buyer/shipment configuration APIs, template/table configuration and language handling. Make publishing distinct from editing, with representative rendering fixtures, impact review and rollback. Add approvals/signature policy and audit before enabling live issue.
 
-## 4. Controlled customization
+## Partner integration
 
-Versioned template configuration: logo, labels, declarations, columns and widths. Define the five-level resolver and lock semantics in tests before exposing overrides. Published versions are immutable; rollback creates a new published version. Keep all templates code-owned until rendering contracts are stable.
+Scoped/revocable service credentials, authenticated embed sessions, signing/retry for webhooks, integration quickstarts, developer logs with masking, request quotas and usage limits. Each credential type must carry its own tenant/action scope; human sessions are not reused as integration tokens.
 
-## 5. Partner integration
+## Production release gate
 
-Scoped API keys, signed webhooks with durable delivery records, authenticated iframe session, theme tokens and quickstart. Launch one reviewed lane with Qubictron before adding countries or a freeform canvas.
-
-## Non-goals for this slice
-
-Live issuance, global compliance claims, AI imports, arbitrary executable formulas, a freeform editor, production hosting and billing.
+Configure the production Auth0 tenant and MFA; independently test deployment, RLS/tenant isolation, object storage, backups and restore, migrations, monitoring, security headers, CSP, translations, disaster recovery and concurrency. Release only when the complete document lifecycle is proven; this repository does not label draft generation as live issuance.

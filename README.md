@@ -1,47 +1,80 @@
 # Freightnaut Docs
 
-Local pilot of the shipment-to-document workflow. TypeScript workspace with React/Vite, Fastify, shared Zod contracts, decimal calculations and Chromium PDF generation.
+Export document workspace built with React, Fastify, TypeScript, Postgres and Chromium. Identity is verified using OpenID Connect; application permissions belong to tenant memberships and explicit shipment grants.
 
-## Run
+## Current implementation
 
-Requires Node 22.12+ (tested with Node 24).
+- OIDC Authorization Code + PKCE, state, nonce and signed-token validation.
+- HttpOnly server-side sessions, CSRF/origin checks, absolute/idle expiry and logout.
+- Separate platform operator, partner administrator/developer, account administrator/preparer/reviewer, and external collaborator access.
+- Database-backed custom roles constrained by tenant scope and the granting administrator’s permissions.
+- Verified-email and issuer-bound, single-use, expiring invitations with revocation.
+- Persisted shipment drafts, optimistic concurrency, configurable validation, invoice/packing-list previews and authorized draft PDFs.
+- Versioned partner/account settings, inheritance, locks, reset, currency/locale/time zone, exporter defaults, document wording and typed custom shipment fields.
+- Postgres row security on shipments, settings history and audit events. Runtime cannot update/delete audit history or grant itself platform operator status.
+- Real Postgres and signed OIDC integration tests plus authenticated browser checks.
+
+This is a production-oriented foundation, **not yet cleared for live document issuance**. The remaining release gates are explicit in [docs/ROADMAP.md](docs/ROADMAP.md). No production authentication bypass or sample-company seed exists.
+
+## Local setup
+
+Node 24 and Docker Desktop are required. From this repository:
 
 ```sh
-npm install
+npm ci
+npm run setup:local
+# Starts only loopback-bound local services, with generated credentials.
+docker compose up -d
+npm run db:migrate
 npm run browser:install
 npm run dev
 ```
 
-Open http://localhost:5173. API: http://127.0.0.1:3001/api/health.
+Open http://127.0.0.1:5173 using this exact hostname. Keycloak: http://127.0.0.1:8080. Local verification emails: http://127.0.0.1:8025. `setup:local` refuses to overwrite an existing `.env`. Secrets live only in ignored `.env` and `.local/` files. Local Keycloak runs in development mode and administrative MFA enforcement is explicitly disabled locally; production configuration rejects that setting.
+
+Sign in, or register through the local identity service, then verify your address using the local mail viewer. New identities have **no workspace access**. To provision the first verified administrator, copy the account identifier displayed on the signed-in access-pending screen, then run:
+
+```sh
+npm run admin:bootstrap -- --user-id YOUR_USER_UUID --partner-name "Your partner" --account-name "Your account" --operator
+```
+
+This offline command uses the migration credential and writes bootstrap audit events. It explicitly grants the selected user the requested scopes. Ordinary partner/account creation uses first-administrator invitations; it does not grant the creator customer data access. The app never chooses your business name, profile, lane, or user identity for you.
+
+The first administrator can configure the workspace, create shipments, invite staff, define roles, and share individual shipments. Invitations are copyable links; the app does not send emails on your behalf. Existing sample browser-local drafts are not automatically imported into a real account.
+
+## Verify
 
 ```sh
 npm test
 npm run build
+npm run test:integration
+npm run test:smoke  # requires npm run dev
+npm run test:oidc   # real local Keycloak, disposable identity, requires npm run dev
+npm run format:check
 ```
 
-## What works
+Integration tests create and drop a uniquely named database on the **local** Postgres server. They use an isolated signed OIDC test issuer; no test login endpoint or identity override exists in the running app. They require the locally generated migration credential, Chromium and a built web bundle. Do not point them at production.
 
-- Four-step shipment workspace seeded with the India–UAE sample.
-- Edit parties, goods, packages, weights, references and terms.
-- Shared data powers invoice and packing-list previews.
-- Actionable pilot checks and exact decimal money calculations.
-- Chromium downloads of bilingual-labelled test draft PDFs.
-- Local browser draft saving with schema validation on restore.
-- Responsive interface and keyboard-accessible fields.
+## Production configuration
 
-## Boundaries
+Auth0 is the selected managed identity service. Use a Regular Web Application, enable MFA, and register `https://YOUR_HOST/api/auth/callback` as its callback. Configure `OIDC_PROVIDERS` with the issuer, client ID and secret. Password recovery and verification stay with the identity provider. The app does not derive application privileges from identity-provider role claims or email domains.
 
-This is a local prototype, not a production service. It binds to loopback. No authentication, account isolation, production persistence, live issuance, approvals, certified compliance pack, or BullMQ worker exists yet. Drafts are saved only in browser storage and are not encrypted; use sample data. PDF jobs currently run synchronously in the API. Local Postgres and Redis infrastructure is provided for the next milestone, but the app does not use it yet.
+Set `NODE_ENV=production`, `PUBLIC_ORIGIN=https://YOUR_HOST`, `DB_SSL=true`, `REQUIRE_ADMIN_MFA=true` and the restricted runtime `DATABASE_URL`. Supply secrets through deployment secret management. Keep the migration credential **out of the runtime environment**. Run migrations in a separate administrative job with `MIGRATION_DATABASE_URL` and `APP_DATABASE_ROLE`. Use your managed database’s trusted CA when needed; certificate verification is never disabled in production.
 
-English–Arabic labels are an initial rendering sample, not a professionally reviewed translation. The packing list currently has shipment-level package totals, not carton allocation. All files remain TEST DRAFT.
+```sh
+npm run build
+npm start
+```
 
-## Structure
+The compiled API serves the web bundle from `apps/web/dist`. A TLS reverse proxy must expose the application on the configured origin; the application does not trust arbitrary forwarded headers. `API_HOST` and `API_PORT` are deployment settings. See [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) for permissions, MFA requirements, security boundaries and remaining operational work.
 
-- `apps/web`: React shipment workspace.
-- `apps/api`: local Fastify API and Chromium draft renderer.
-- `packages/domain`: canonical schema, calculations, sample, validation and shared HTML templates.
-- `docs/openapi.json`: API contract (generated from the shared shipment schema).
-- `compose.yaml`: optional local Postgres and Redis.
-- `docs/ROADMAP.md`: next implementation milestones.
+## Repository
 
-`npm run build` checks TypeScript and produces the web bundle; the API currently runs with tsx. There is no production deployment configuration yet.
+- `apps/api/src/auth`: OIDC and database-backed sessions.
+- `apps/api/src/tenancy`: memberships, roles, invitations, settings and audit.
+- `apps/api/src/shipments`: tenant-scoped draft APIs and document access.
+- `apps/api/migrations`: ordered migrations; production API refuses privileged runtime DB roles.
+- `apps/web/src`: sign-in, permission-aware navigation, shipment workflow and administration screens.
+- `packages/domain`: validated data/configuration, permission catalog, calculations, rendering and settings resolver.
+- `docs/openapi.json`: API contract generated from shared schemas with operation-level security requirements.
+- `compose.yaml`: local Postgres, Redis, Keycloak and mail testing. Redis is prepared for the next worker milestone; it is not yet used for PDF jobs.

@@ -7,21 +7,30 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -n api,web \"npm run dev -w @freightnaut/api\" \"npm run dev -w @freightnaut/web\"",
-    "build": "npm run typecheck && npm run build -w @freightnaut/web",
+    "dev": "concurrently -k -n api,web \"tsx watch apps/api/src/server.ts\" \"npm run dev -w @freightnaut/web\"",
+    "build": "npm run typecheck && npm run build -w @freightnaut/web && node scripts/build-api.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "browser:install": "playwright install chromium",
     "docs:generate": "node --import tsx scripts/openapi.ts",
     "test:smoke": "node --import tsx scripts/smoke.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "start": "node apps/api/dist/server.mjs",
+    "setup:local": "node scripts/setup-local.mjs",
+    "db:migrate": "node --import tsx scripts/migrate.ts",
+    "admin:bootstrap": "node --import tsx scripts/bootstrap.ts",
+    "test:integration": "node --import tsx scripts/integration.ts",
+    "test:oidc": "node --import tsx scripts/keycloak-smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "concurrently": "^9.2.0",
+    "esbuild": "^0.28.2",
+    "jose": "^6.2.14",
     "prettier": "^3.9.10",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
