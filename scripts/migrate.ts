@@ -59,6 +59,15 @@ try {
   await client.query(
     `GRANT SELECT,INSERT ON audit_events,settings_versions TO "${role}"`,
   );
+  await client.query(
+    `GRANT SELECT,INSERT ON document_jobs,document_files TO "${role}"`,
+  );
+  await client.query(
+    `GRANT UPDATE(status,attempts,lease_token,lease_until,error_code,completed_at) ON document_jobs TO "${role}"`,
+  );
+  await client.query(
+    `GRANT SELECT,INSERT,UPDATE,DELETE ON document_outbox TO "${role}"`,
+  );
   await client.query(`GRANT SELECT ON schema_migrations TO "${role}"`);
   await client.query(
     "REVOKE ALL ON FUNCTION has_permission(uuid,text,uuid) FROM PUBLIC",

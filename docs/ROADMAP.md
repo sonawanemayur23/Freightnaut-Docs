@@ -8,9 +8,13 @@ OIDC, server sessions, MFA-gated administration, tenant memberships, bounded cus
 
 A consistent responsive workspace, self-hosted typography, branded local identity screens, focused company/trade/document/branding settings, role-aware team management, searchable shipment summaries, cursor pagination and authorized shipment copying. Shipment edits flush before navigation; selected records survive reloads. Configuration keeps explicit saves and unsaved-change protection. Metrics and readiness come from persisted authorized records; the app seeds no customer examples.
 
-## Next: document lifecycle and jobs
+## Implemented: background draft lifecycle
 
-Move Chromium into a bounded BullMQ worker. Persist job state and an outbox in Postgres; use idempotent job/issue keys. Store files privately with authorized expiring downloads. Introduce transactional document numbering, immutable input/template/rule snapshots, PDF hashes, amendment reasons and retained originals. A failed render cannot reuse an allocated number or report a successful issuance.
+A separate BullMQ worker consumes a durable Postgres outbox. Draft requests save version-checked shipment/settings/HTML snapshots and requester-scoped idempotency keys. Bounded retries and lease recovery retain failed status. Immutable saved PDF bytes and SHA-256 hashes remain private in Postgres. The UI shows history, statuses and re-downloads; current permissions are checked before processing, persistence and every download.
+
+## Next: numbering, private object storage and issuance
+
+Move large artifacts to private object storage with authorized expiring downloads. Add transactional document numbering, amendment reasons and retained originals, rule/template publishing and a reviewed live-issuance policy. A failed render cannot reuse an allocated number or report a successful issuance. Current background jobs generate drafts only.
 
 ## Then: domain-validated rules and customization
 

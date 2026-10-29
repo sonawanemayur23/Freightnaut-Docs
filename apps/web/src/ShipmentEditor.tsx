@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigationGuard } from "./navigation";
 import { countryOptions } from "./countries";
+import { DocumentJobs, type DocumentJob } from "./DocumentJobs";
 import { CustomFields } from "./CustomFields";
 import {
   ArrowRight,
@@ -120,7 +121,8 @@ export function ShipmentEditor({
     [doc, setDoc] = useState<DocumentType>("invoice");
   const [save, setSave] = useState("Saved"),
     [error, setError] = useState(""),
-    [downloading, setDownloading] = useState(false);
+    [downloading, setDownloading] = useState(false),
+    [activeJob, setActiveJob] = useState<string | null>(null);
   const latest = useRef(shipment),
     saved = useRef(JSON.stringify(initial.data)),
     version = useRef(initial.version),
@@ -221,29 +223,31 @@ export function ShipmentEditor({
         ),
       }));
   }
+  const requestKey = useRef<{ signature: string; key: string } | null>(null);
   async function download() {
     setDownloading(true);
     setError("");
     try {
       await flush();
-      const blob = await api<Blob>(
-        path + `/documents/${doc}/pdf`,
-        { method: "POST", body: JSON.stringify({ version: version.current }) },
-        true,
-      );
-      const url = URL.createObjectURL(blob),
-        a = document.createElement("a");
-      a.href = url;
-      a.download = doc + "-draft.pdf";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const signature = `${version.current}:${doc}`;
+      if (requestKey.current?.signature !== signature)
+        requestKey.current = { signature, key: crypto.randomUUID() };
+      const job = await api<DocumentJob>(path + "/document-jobs", {
+        method: "POST",
+        body: JSON.stringify({
+          version: version.current,
+          type: doc,
+          idempotencyKey: requestKey.current.key,
+        }),
+      });
+      requestKey.current = null;
+      if (mounted.current) setActiveJob(job.id);
     } catch (error) {
       setError(
         error instanceof Error
           ? error.message
           : "Could not download the document.",
       );
-    } finally {
       setDownloading(false);
     }
   }
@@ -816,6 +820,19 @@ export function ShipmentEditor({
           </div>
         </aside>
       </div>
+      {canDownload && (
+        <DocumentJobs
+          path={path + "/document-jobs"}
+          api={api}
+          activeId={activeJob}
+          onSettled={() => {
+            setDownloading(false);
+            setActiveJob(null);
+          }}
+          locale={settings.locale}
+          timeZone={settings.timeZone}
+        />
+      )}
     </>
   );
 }

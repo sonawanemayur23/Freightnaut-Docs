@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -n api,web \"tsx watch apps/api/src/server.ts\" \"npm run dev -w @freightnaut/web\"",
+    "dev": "concurrently -k -n api,web,worker \"tsx watch apps/api/src/server.ts\" \"npm run dev -w @freightnaut/web\" \"tsx watch apps/api/src/documents/worker.ts\"",
     "build": "npm run typecheck && npm run build -w @freightnaut/web && node scripts/build-api.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -24,7 +24,9 @@
     "test:oidc": "node --import tsx scripts/keycloak-smoke.ts",
     "reset:local": "node scripts/reset-local.mjs",
     "identity:configure-local": "node --import tsx scripts/configure-local-identity.ts",
-    "test:registration": "node --import tsx scripts/registration-smoke.ts"
+    "test:registration": "node --import tsx scripts/registration-smoke.ts",
+    "worker": "node apps/api/dist/worker.mjs",
+    "worker:dev": "tsx watch apps/api/src/documents/worker.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

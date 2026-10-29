@@ -28,6 +28,18 @@ describe("production configuration", () => {
     ])
       expect(() => loadConfig({ ...base, ...patch })).toThrow();
   });
+  it("requires TLS for configured production Redis and validates its protocol", () => {
+    expect(() =>
+      loadConfig({ ...base, REDIS_URL: "redis://redis.example.com" }),
+    ).toThrow();
+    expect(() =>
+      loadConfig({ ...base, REDIS_URL: "https://redis.example.com" }),
+    ).toThrow();
+    expect(
+      loadConfig({ ...base, REDIS_URL: "rediss://redis.example.com" })
+        .REDIS_URL,
+    ).toBe("rediss://redis.example.com");
+  });
   it("does not allow duplicate provider identifiers or path-based origins", () => {
     const provider = JSON.parse(base.OIDC_PROVIDERS)[0];
     expect(() =>

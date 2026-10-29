@@ -314,8 +314,34 @@ operation(
   "post",
   s + "/documents/{type}/pdf",
   "downloadDraft",
-  "Render a draft; requires shipment.read and document.download",
+  "Legacy synchronous draft rendering; new clients should use document-jobs",
   z.strictObject({ version: z.number().int().positive() }),
+  { pdf: true },
+);
+operation(
+  "post",
+  s + "/document-jobs",
+  "prepareSavedDraft",
+  "Persist a version-checked immutable snapshot and queue a PDF; same requester/key returns the same request",
+  z.strictObject({
+    version: z.number().int().positive(),
+    type: z.enum(["invoice", "packing-list"]),
+    idempotencyKey: z.uuid(),
+  }),
+  { status: 202 },
+);
+operation(
+  "get",
+  s + "/document-jobs",
+  "draftHistory",
+  "List the latest 50 draft requests; requires shipment.read and document.download",
+);
+operation(
+  "get",
+  s + "/document-jobs/{jobId}/file",
+  "downloadSavedDraft",
+  "Download a ready immutable PDF after current permission and SHA-256 verification",
+  undefined,
   { pdf: true },
 );
 operation(

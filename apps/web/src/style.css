@@ -3802,3 +3802,127 @@ fieldset {
     font-size: 12px;
   }
 }
+
+.document-history {
+  margin-top: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  overflow: hidden;
+}
+.document-history > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+.document-history h2 {
+  font-size: 18px;
+}
+.document-history p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 7px;
+}
+.document-history ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.document-history li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.document-history li > div {
+  flex: 1;
+  min-width: 0;
+}
+.document-history li strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.document-history li strong span {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 10px;
+}
+.document-history li small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}
+.job-state {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: #f2f5fa;
+  border-radius: 8px;
+  color: #63758b;
+}
+.job-ready {
+  color: #397353;
+  background: #eef7f1;
+}
+.job-failed {
+  color: #a64e43;
+  background: #fff3f1;
+}
+.document-history-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 26px 24px;
+  color: var(--muted);
+}
+.document-history-empty p {
+  margin: 0;
+}
+.document-history > footer {
+  font-size: 12px;
+  color: var(--muted);
+  background: #fafcfe;
+  padding: 14px 24px;
+}
+.document-history > .error {
+  margin: 18px 24px;
+}
+@media (max-width: 620px) {
+  .document-history > header,
+  .document-history li {
+    padding: 18px;
+  }
+  .document-history li {
+    flex-wrap: wrap;
+  }
+  .document-history li .secondary {
+    margin-left: 50px;
+  }
+  .document-history li strong span {
+    display: block;
+    margin-left: 0;
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 620px) {
+  .document-history li {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .document-history li .secondary {
+    grid-column: 2;
+    justify-self: start;
+    margin-left: 0;
+  }
+  .document-history li strong span {
+    margin-top: 5px;
+  }
+}

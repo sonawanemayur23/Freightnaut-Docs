@@ -17,6 +17,7 @@ import {
 import { registerOnboarding } from "./tenancy/onboarding.js";
 import { registerTenancy } from "./tenancy/routes.js";
 import { registerShipments } from "./shipments/routes.js";
+import { registerDocumentJobs } from "./documents/jobs.js";
 import { HttpError } from "./errors.js";
 declare module "fastify" {
   interface FastifyRequest {
@@ -143,6 +144,7 @@ export async function buildApp(config: AppConfig, pool: Pool) {
   registerTenancy(app, pool, config);
   registerOnboarding(app, pool, config);
   registerShipments(app, pool, config);
+  registerDocumentJobs(app, pool);
   if (config.NODE_ENV === "production" || config.SERVE_WEB === "true") {
     await app.register(staticPlugin, {
       root: resolve("apps/web/dist"),

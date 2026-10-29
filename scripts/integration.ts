@@ -5,6 +5,9 @@ import { generateKeyPair, exportJWK, SignJWT } from "jose";
 import { randomBytes, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
+import { DocumentRunner } from "../apps/api/src/documents/runner.js";
+import { Queue } from "bullmq";
+import { Redis } from "ioredis";
 import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import { loadConfig } from "../apps/api/src/config.js";
@@ -165,6 +168,7 @@ const config = loadConfig({
   LOCAL_SELF_SERVICE_SIGNUP: "false",
   SERVE_WEB: "true",
   LOG_LEVEL: "silent",
+  PDF_QUEUE_NAME: database,
   DATABASE_URL: runtimeUrl.href,
   OIDC_PROVIDERS: JSON.stringify([
     {
@@ -177,6 +181,7 @@ const config = loadConfig({
   ]),
 });
 const app = await buildApp(config, pool);
+const documentRunner = new DocumentRunner(pool, config, () => {});
 let count = 0;
 const check = (name: string) => {
   count++;
@@ -949,6 +954,370 @@ try {
     409,
   );
   check("authorized PDFs render persisted, version-checked snapshots");
+  const docSource = await expectStatus(
+    await request(adminClient, "POST", base + "/shipments", data),
+    201,
+  );
+  const jobsPath = base + "/shipments/" + docSource.id + "/document-jobs";
+  const key = crypto.randomUUID();
+  const queued = await expectStatus(
+    await request(adminClient, "POST", jobsPath, {
+      version: 1,
+      type: "invoice",
+      idempotencyKey: key,
+    }),
+    202,
+  );
+  assert.equal(queued.status, "queued");
+  assert.equal(
+    (
+      await expectStatus(
+        await request(adminClient, "POST", jobsPath, {
+          version: 1,
+          type: "invoice",
+          idempotencyKey: key,
+        }),
+        202,
+      )
+    ).id,
+    queued.id,
+  );
+  assert.equal(
+    (
+      await request(adminClient, "POST", jobsPath, {
+        version: 1,
+        type: "packing-list",
+        idempotencyKey: key,
+      })
+    ).statusCode,
+    409,
+  );
+  assert.equal(
+    (
+      await request(adminClient, "POST", jobsPath, {
+        version: 99,
+        type: "invoice",
+        idempotencyKey: crypto.randomUUID(),
+      })
+    ).statusCode,
+    409,
+  );
+  assert.equal((await request(outsider, "GET", jobsPath)).statusCode, 403);
+  assert.equal(
+    (await request(external, "GET", jobsPath + "/" + queued.id + "/file"))
+      .statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(adminClient, "GET", jobsPath + "/" + queued.id + "/file"))
+      .statusCode,
+    409,
+  );
+  assert.equal(
+    (
+      await owner.query("SELECT 1 FROM document_outbox WHERE job_id=$1", [
+        queued.id,
+      ])
+    ).rowCount,
+    1,
+  );
+  await expectStatus(
+    await request(adminClient, "PUT", base + "/shipments/" + docSource.id, {
+      version: 1,
+      data: { ...data, buyerPo: "EDITED-AFTER-QUEUE" },
+    }),
+    200,
+  );
+  assert.notEqual(
+    (
+      await owner.query("SELECT snapshot FROM document_jobs WHERE id=$1", [
+        queued.id,
+      ])
+    ).rows[0].snapshot.shipment.buyerPo,
+    "EDITED-AFTER-QUEUE",
+  );
+  await assert.rejects(
+    () =>
+      transaction(pool, adminClient.userId, (db) =>
+        db.query("UPDATE document_jobs SET html='tampered' WHERE id=$1", [
+          queued.id,
+        ]),
+      ),
+    (error: unknown) => (error as { code: string }).code === "42501",
+  );
+  check(
+    "durable document outbox, idempotency, immutable snapshots, stale-version rejection and foreign access denial",
+  );
+
+  const failure = await expectStatus(
+    await request(adminClient, "POST", jobsPath, {
+      version: 2,
+      type: "packing-list",
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    202,
+  );
+  const failedRunner = new DocumentRunner(
+    pool,
+    config,
+    () => {},
+    async () => {
+      throw new Error("Simulated renderer failure");
+    },
+  );
+  try {
+    for (let i = 0; i < 3; i++)
+      await failedRunner.process({
+        id: failure.id,
+        requester: adminClient.userId,
+      });
+  } finally {
+    await failedRunner.close();
+  }
+  assert.equal(
+    (
+      await owner.query("SELECT status FROM document_jobs WHERE id=$1", [
+        failure.id,
+      ])
+    ).rows[0].status,
+    "failed",
+  );
+  assert.equal(
+    (
+      await owner.query("SELECT 1 FROM document_files WHERE job_id=$1", [
+        failure.id,
+      ])
+    ).rowCount,
+    0,
+  );
+  assert.equal(
+    (
+      await owner.query("SELECT 1 FROM document_outbox WHERE job_id=$1", [
+        failure.id,
+      ])
+    ).rowCount,
+    0,
+  );
+  check(
+    "bounded render retries end in a durable failed state without a downloadable file",
+  );
+
+  // Simulate a crashed attempt; another delivery must reclaim its expired lease.
+  await owner.query(
+    "UPDATE document_jobs SET status='processing',attempts=1,lease_token=gen_random_uuid(),lease_until=now()-interval '1 second' WHERE id=$1",
+    [queued.id],
+  );
+  let releaseOld!: (bytes: Buffer) => void, announceStart!: () => void;
+  const started = new Promise<void>((resolve) => {
+    announceStart = resolve;
+  });
+  const oldRender = new Promise<Buffer>((resolve) => {
+    releaseOld = resolve;
+  });
+  const obsoleteRunner = new DocumentRunner(
+    pool,
+    config,
+    () => {},
+    async () => {
+      announceStart();
+      return oldRender;
+    },
+  );
+  const obsolete = obsoleteRunner.process({
+    id: queued.id,
+    requester: adminClient.userId,
+  });
+  await started;
+  await owner.query(
+    "UPDATE document_jobs SET lease_until=now()-interval '1 second' WHERE id=$1",
+    [queued.id],
+  );
+  const expiredRunner = new DocumentRunner(
+    pool,
+    config,
+    () => {},
+    async () => pdf.rawPayload,
+  );
+  try {
+    await expiredRunner.process({
+      id: queued.id,
+      requester: adminClient.userId,
+    });
+    await expiredRunner.process({
+      id: queued.id,
+      requester: adminClient.userId,
+    });
+  } finally {
+    releaseOld(Buffer.concat([pdf.rawPayload, Buffer.from("stale-render")]));
+    await obsolete;
+    await obsoleteRunner.close();
+    await expiredRunner.close();
+  }
+  assert.equal(
+    (
+      await owner.query(
+        "SELECT count(*)::int AS n FROM document_files WHERE job_id=$1",
+        [queued.id],
+      )
+    ).rows[0].n,
+    1,
+  );
+  const savedPdf = await request(
+    adminClient,
+    "GET",
+    jobsPath + "/" + queued.id + "/file",
+  );
+  assert.equal(savedPdf.statusCode, 200);
+  assert.deepEqual(savedPdf.rawPayload, pdf.rawPayload);
+  assert.equal(
+    savedPdf.headers["x-document-sha256"],
+    createHash("sha256").update(pdf.rawPayload).digest("hex"),
+  );
+  await assert.rejects(
+    () =>
+      transaction(pool, adminClient.userId, (db) =>
+        db.query(
+          "UPDATE document_files SET sha256='tampered' WHERE job_id=$1",
+          [queued.id],
+        ),
+      ),
+    (error: unknown) => (error as { code: string }).code === "42501",
+  );
+  check(
+    "expired worker leases recover once, saved PDF hashes verify and files remain immutable",
+  );
+
+  const temporary = await fixtureUser("document-revocation@example.test");
+  await member(temporary, account.id, "preparer");
+  const revoked = await expectStatus(
+    await request(temporary, "POST", jobsPath, {
+      version: 2,
+      type: "invoice",
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    202,
+  );
+  const revokingRunner = new DocumentRunner(
+    pool,
+    config,
+    () => {},
+    async () => {
+      await owner.query(
+        "UPDATE memberships SET status='revoked' WHERE user_id=$1",
+        [temporary.userId],
+      );
+      return pdf.rawPayload;
+    },
+  );
+  try {
+    await revokingRunner.process({
+      id: revoked.id,
+      requester: temporary.userId,
+    });
+    await revokingRunner.process({
+      id: revoked.id,
+      requester: temporary.userId,
+    });
+  } finally {
+    await revokingRunner.close();
+  }
+  assert.equal(
+    (
+      await owner.query("SELECT error_code FROM document_jobs WHERE id=$1", [
+        revoked.id,
+      ])
+    ).rows[0].error_code,
+    "access_revoked",
+  );
+  assert.equal(
+    (
+      await owner.query("SELECT 1 FROM document_files WHERE job_id=$1", [
+        revoked.id,
+      ])
+    ).rowCount,
+    0,
+  );
+  assert.equal(
+    (await request(temporary, "GET", jobsPath + "/" + queued.id + "/file"))
+      .statusCode,
+    403,
+  );
+  check(
+    "access revocation during background rendering prevents file persistence and delivery",
+  );
+
+  assert.equal(
+    (
+      await transaction(pool, outsider.userId, (db) =>
+        db.query("SELECT id FROM document_jobs"),
+      )
+    ).rowCount,
+    0,
+  );
+  const reviewerJob = await expectStatus(
+    await request(reviewer, "POST", jobsPath, {
+      version: 2,
+      type: "packing-list",
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    202,
+  );
+  assert.equal(reviewerJob.status, "queued");
+  documentRunner.start();
+  const background = await expectStatus(
+    await request(adminClient, "POST", jobsPath, {
+      version: 2,
+      type: "invoice",
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    202,
+  );
+  const until = Date.now() + 30000;
+  let ready = false;
+  while (Date.now() < until) {
+    const row = (
+      await owner.query("SELECT status FROM document_jobs WHERE id=$1", [
+        background.id,
+      ])
+    ).rows[0];
+    if (
+      row.status === "ready" &&
+      (
+        await owner.query("SELECT status FROM document_jobs WHERE id=$1", [
+          reviewerJob.id,
+        ])
+      ).rows[0].status === "ready"
+    ) {
+      ready = true;
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  assert(
+    ready,
+    "A real BullMQ worker must render the committed outbox request.",
+  );
+  assert.equal(
+    (
+      await request(
+        adminClient,
+        "GET",
+        jobsPath + "/" + background.id + "/file",
+      )
+    ).rawPayload
+      .subarray(0, 5)
+      .toString(),
+    "%PDF-",
+  );
+  assert.equal(
+    (await request(reviewer, "GET", jobsPath + "/" + reviewerJob.id + "/file"))
+      .statusCode,
+    200,
+  );
+  check(
+    "real Redis/BullMQ dispatch renders a persisted draft outside the API request",
+  );
+
   const mfaApp = await buildApp({ ...config, requireAdminMfa: true }, pool);
   const noMfa = await transaction(owner, null, (db) =>
     issueSession(db, adminClient.userId, ["pwd"], config),
@@ -1132,6 +1501,20 @@ try {
       path: "../work/ui-refresh/mobile.png",
       fullPage: true,
     });
+    const delivered = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Download draft PDF", exact: true })
+      .click();
+    const downloadedPdf = await delivered;
+    assert.match(downloadedPdf.suggestedFilename(), /invoice-v\d+-draft\.pdf/);
+    await page
+      .getByRole("region", { name: "Saved draft documents" })
+      .getByText("Ready to download", { exact: false })
+      .waitFor();
+    await page
+      .getByRole("region", { name: "Saved draft documents" })
+      .scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "../work/ui-refresh/document-history.png" });
     await page.locator(".preview-panel").scrollIntoViewIfNeeded();
     await page
       .locator("iframe")
@@ -1237,6 +1620,12 @@ try {
     `Integration passed: ${count} security and persistence scenarios.`,
   );
 } finally {
+  await documentRunner.close();
+  const redis = new Redis(config.REDIS_URL!, { maxRetriesPerRequest: 1 });
+  const queue = new Queue(config.PDF_QUEUE_NAME, { connection: redis });
+  await queue.obliterate({ force: true });
+  await queue.close();
+  redis.disconnect();
   await app.close();
   await issuerApp.close();
   await pool.end();

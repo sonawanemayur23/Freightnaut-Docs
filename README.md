@@ -71,6 +71,8 @@ Set `NODE_ENV=production`, `PUBLIC_ORIGIN=https://YOUR_HOST`, `DB_SSL=true`, `RE
 ```sh
 npm run build
 npm start
+# In a separate process using the same runtime configuration:
+npm run worker
 ```
 
 The compiled API serves the web bundle from `apps/web/dist`. A TLS reverse proxy must expose the application on the configured origin; the application does not trust arbitrary forwarded headers. `API_HOST` and `API_PORT` are deployment settings. See [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) for permissions, MFA requirements, security boundaries and remaining operational work.
@@ -84,4 +86,8 @@ The compiled API serves the web bundle from `apps/web/dist`. A TLS reverse proxy
 - `apps/web/src`: sign-in, permission-aware navigation, shipment workflow and administration screens.
 - `packages/domain`: validated data/configuration, permission catalog, calculations, rendering and settings resolver.
 - `docs/openapi.json`: API contract generated from shared schemas with operation-level security requirements.
-- `compose.yaml`: local Postgres, Redis, Keycloak and mail testing. Redis is prepared for the next worker milestone; it is not yet used for PDF jobs.
+- `compose.yaml`: local Postgres, Redis, Keycloak and mail testing. Redis transports BullMQ PDF jobs; Postgres retains the authoritative outbox, snapshots, state and saved files.
+
+## Background draft documents
+
+`npm run dev` starts API, web and the document worker. For an already running development session, start `npm run worker:dev` separately after applying migrations. A running API can accept requests while Redis or the worker is unavailable: the committed outbox retains them until dispatch resumes. Configure `REDIS_URL` with credentials; production requires `rediss://` and a Redis instance configured with persistence and no key eviction. Give deployments separate `PDF_QUEUE_NAME` values, and run the worker with the same restricted runtime database role, without migration credentials. See [docs/DOCUMENTS.md](docs/DOCUMENTS.md).

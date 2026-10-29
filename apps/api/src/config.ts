@@ -35,6 +35,11 @@ const schema = z.object({
   REQUIRE_ADMIN_MFA: z.enum(["true", "false"]).default("true"),
   AUTH_RATE_LIMIT: z.coerce.number().int().min(5).max(500).default(30),
   INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(48),
+  REDIS_URL: z.url().optional(),
+  PDF_QUEUE_NAME: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]{1,80}$/)
+    .default("freightnaut-pdf"),
   PDF_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
   PDF_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   DB_SSL: z.enum(["true", "false"]).default("true"),
@@ -56,6 +61,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     throw new Error(
       "Configure database TLS through DB_SSL and the system CA trust store, not URL overrides",
     );
+  if (parsed.REDIS_URL) {
+    const redis = new URL(parsed.REDIS_URL);
+    if (!["redis:", "rediss:"].includes(redis.protocol))
+      throw new Error("REDIS_URL requires Redis protocol");
+    if (parsed.NODE_ENV === "production" && redis.protocol !== "rediss:")
+      throw new Error("Redis TLS is required in production");
+  }
   const origin = new URL(parsed.PUBLIC_ORIGIN);
   if (
     origin.origin !== parsed.PUBLIC_ORIGIN ||

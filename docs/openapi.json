@@ -1557,7 +1557,7 @@
     "/api/tenants/{tenantId}/shipments/{shipmentId}/documents/{type}/pdf": {
       "post": {
         "operationId": "downloadDraft",
-        "summary": "Render a draft; requires shipment.read and document.download",
+        "summary": "Legacy synchronous draft rendering; new clients should use document-jobs",
         "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
@@ -1623,6 +1623,153 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}/document-jobs": {
+      "post": {
+        "operationId": "prepareSavedDraft",
+        "summary": "Persist a version-checked immutable snapshot and queue a PDF; same requester/key returns the same request",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "202": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["invoice", "packing-list"]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": ["version", "type", "idempotencyKey"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "draftHistory",
+        "summary": "List the latest 50 draft requests; requires shipment.read and document.download",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}/document-jobs/{jobId}/file": {
+      "get": {
+        "operationId": "downloadSavedDraft",
+        "summary": "Download a ready immutable PDF after current permission and SHA-256 verification",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft PDF from the authorized persisted shipment version",
+            "content": {
+              "application/pdf": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" }
         }
       }
     },
