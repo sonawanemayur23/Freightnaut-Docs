@@ -6,6 +6,10 @@ Use managed Auth0 for production identity and standards-based OIDC in the applic
 
 A person is identified by `(issuer, subject)`. Equal email addresses do not merge identities. Signing in creates an identity and session, not an account membership. Issuer configuration is server-owned; arbitrary issuers cannot be supplied by the browser. Invitations bind the verified email **and** inviter’s configured issuer. Federation into a common Auth0 issuer must preserve Auth0’s email-verification trust guarantees.
 
+## Local registration exception
+
+The explicit `LOCAL_SELF_SERVICE_SIGNUP=true` flag enables local-only creation of a new owned partner/account pair after normal OIDC registration. It is rejected outside development or if the app, database, or identity provider is not loopback-only. The local Keycloak realm skips verification emails and asks only for email/password. The user enters their company name in the app; no privileged identity is pre-seeded, no verified-email claim is invented, and no platform operator or existing-tenant access is granted. Provisioning is transaction-locked and cannot be repeated for a user with a membership. Production remains invitation-only and retains its verification/MFA requirements.
+
 ## Persona boundaries
 
 | Persona               | Scope           | Current access                                                                                      |

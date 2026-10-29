@@ -162,6 +162,7 @@ issuer = issuerApp.listeningOrigin;
 const config = loadConfig({
   ...process.env,
   NODE_ENV: "test",
+  LOCAL_SELF_SERVICE_SIGNUP: "false",
   SERVE_WEB: "true",
   LOG_LEVEL: "silent",
   DATABASE_URL: runtimeUrl.href,
@@ -1052,6 +1053,58 @@ try {
   } finally {
     await browser.close();
   }
+  assert.equal(
+    (
+      await request(unverified, "POST", "/api/onboarding/workspace", {
+        companyName: "Blocked by default",
+      })
+    ).statusCode,
+    403,
+  );
+  const localSignupApp = await buildApp(
+    { ...config, NODE_ENV: "development", LOCAL_SELF_SERVICE_SIGNUP: "true" },
+    pool,
+  );
+  const signup = await localSignupApp.inject({
+    method: "POST",
+    url: "/api/onboarding/workspace",
+    headers: {
+      cookie: "freightnaut_session=" + unverified.token,
+      origin: config.PUBLIC_ORIGIN,
+      "x-csrf-token": unverified.csrf,
+    },
+    payload: { companyName: "Isolated own workspace" },
+  });
+  assert.equal(signup.statusCode, 201, signup.body);
+  const ownId = signup.json().workspaceId;
+  assert.equal(
+    (await request(unverified, "GET", `/api/tenants/${ownId}/shipments`))
+      .statusCode,
+    200,
+  );
+  assert.equal(
+    (await request(unverified, "GET", base + "/shipments")).statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(unverified, "GET", "/api/auth/session")).json().operator,
+    false,
+  );
+  const duplicate = await localSignupApp.inject({
+    method: "POST",
+    url: "/api/onboarding/workspace",
+    headers: {
+      cookie: "freightnaut_session=" + unverified.token,
+      origin: config.PUBLIC_ORIGIN,
+      "x-csrf-token": unverified.csrf,
+    },
+    payload: { companyName: "Duplicate workspace" },
+  });
+  assert.equal(duplicate.statusCode, 409);
+  await localSignupApp.close();
+  check(
+    "local self-service creates only an isolated owned workspace, without platform access or duplicate provisioning",
+  );
   const logout = await request(invitee, "POST", "/api/auth/logout");
   assert.equal(logout.statusCode, 200);
   assert.equal(

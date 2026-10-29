@@ -21,7 +21,10 @@
     "db:migrate": "node --import tsx scripts/migrate.ts",
     "admin:bootstrap": "node --import tsx scripts/bootstrap.ts",
     "test:integration": "node --import tsx scripts/integration.ts",
-    "test:oidc": "node --import tsx scripts/keycloak-smoke.ts"
+    "test:oidc": "node --import tsx scripts/keycloak-smoke.ts",
+    "reset:local": "node scripts/reset-local.mjs",
+    "identity:configure-local": "node --import tsx scripts/configure-local-identity.ts",
+    "test:registration": "node --import tsx scripts/registration-smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

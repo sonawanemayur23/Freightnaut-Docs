@@ -30,7 +30,7 @@ const realm = {
   registrationEmailAsUsername: true,
   loginWithEmailAllowed: true,
   resetPasswordAllowed: true,
-  verifyEmail: true,
+  verifyEmail: false,
   bruteForceProtected: true,
   failureFactor: 5,
   rememberMe: false,
@@ -65,6 +65,7 @@ await writeFile(".local/keycloak/realm.json", JSON.stringify(realm, null, 2), {
 });
 const env = {
   NODE_ENV: "development",
+  LOCAL_SELF_SERVICE_SIGNUP: "true",
   API_HOST: "127.0.0.1",
   API_PORT: "3001",
   PUBLIC_ORIGIN: origin,

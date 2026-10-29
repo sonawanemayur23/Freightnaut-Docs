@@ -1484,3 +1484,19 @@ button:disabled {
 .setting-card:has(.custom-definitions) {
   grid-column: 1/-1;
 }
+
+.onboarding-form {
+  max-width: 360px;
+  margin: 24px auto 0;
+  display: grid;
+  gap: 18px;
+  text-align: left;
+}
+.onboarding-form > p {
+  text-align: center;
+  margin: 0;
+}
+.onboarding-form .primary {
+  font-size: 12px;
+  padding: 13px;
+}

@@ -22,6 +22,7 @@ describe("production configuration", () => {
     for (const patch of [
       { PUBLIC_ORIGIN: "http://docs.example.com" },
       { DB_SSL: "false" },
+      { LOCAL_SELF_SERVICE_SIGNUP: "true" },
       { REQUIRE_ADMIN_MFA: "false" },
       { OIDC_PROVIDERS: base.OIDC_PROVIDERS.replace("https:", "http:") },
     ])

@@ -26,21 +26,27 @@ npm run setup:local
 # Starts only loopback-bound local services, with generated credentials.
 docker compose up -d
 npm run db:migrate
+npm run identity:configure-local
 npm run browser:install
 npm run dev
 ```
 
 Open http://127.0.0.1:5173 using this exact hostname. Keycloak: http://127.0.0.1:8080. Local verification emails: http://127.0.0.1:8025. `setup:local` refuses to overwrite an existing `.env`. Secrets live only in ignored `.env` and `.local/` files. Local Keycloak runs in development mode and administrative MFA enforcement is explicitly disabled locally; production configuration rejects that setting.
 
-Sign in, or register through the local identity service, then verify your address using the local mail viewer. New identities have **no workspace access**. To provision the first verified administrator, copy the account identifier displayed on the signed-in access-pending screen, then run:
+Local registration is intentionally straightforward: choose Register, enter your email and password, then enter your company name to create your own workspace. Email verification is disabled in the local realm; names are optional and there is no manual administrator provisioning step. The app does not fabricate a verified-email claim. `LOCAL_SELF_SERVICE_SIGNUP=true` is rejected unless the app, identity service and database are all on loopback in development mode, and cannot be enabled in production. Company creation grants no platform operator privileges or access to existing customer accounts.
+
+To start local testing over, stop `npm run dev`, then run:
 
 ```sh
-npm run admin:bootstrap -- --user-id YOUR_USER_UUID --partner-name "Your partner" --account-name "Your account" --operator
+npm run reset:local   # destroys ONLY the freightnautdocs-dev Docker service data
+npm run db:migrate
+npm run identity:configure-local
+npm run dev
 ```
 
-This offline command uses the migration credential and writes bootstrap audit events. It explicitly grants the selected user the requested scopes. Ordinary partner/account creation uses first-administrator invitations; it does not grant the creator customer data access. The app never chooses your business name, profile, lane, or user identity for you.
+This clears local identities, workspaces, sessions, Redis data and captured mail while retaining local credentials. Begin again from http://127.0.0.1:5173; old identity-provider registration links expire and must not be reused.
 
-The first administrator can configure the workspace, create shipments, invite staff, define roles, and share individual shipments. Invitations are copyable links; the app does not send emails on your behalf. Existing sample browser-local drafts are not automatically imported into a real account.
+Production remains invitation-only with verified email and MFA enforcement. Offline first-administrator provisioning is available through `npm run admin:bootstrap -- --user-id YOUR_USER_UUID --partner-name "Your partner" --account-name "Your account" --operator` after verified sign-in. Normal partner/account creation uses invitations rather than implicit customer-data access. Workspace invitations still require a verified email, even locally; the no-email local path creates only a new isolated workspace.
 
 ## Verify
 
@@ -50,6 +56,7 @@ npm run build
 npm run test:integration
 npm run test:smoke  # requires npm run dev
 npm run test:oidc   # real local Keycloak, disposable identity, requires npm run dev
+npm run test:registration # full local registration/company setup/password sign-in, cleans up afterward
 npm run format:check
 ```
 

@@ -335,6 +335,14 @@ operation(
   "revokePlatformInvitation",
   "Platform operator revokes an unaccepted partner administrator invitation",
 );
+operation(
+  "post",
+  "/api/onboarding/workspace",
+  "onboardLocalWorkspace",
+  "Explicit local-development-only self-service; creates new isolated workspaces, never joins existing tenants",
+  z.strictObject({ companyName: z.string().trim().min(1).max(200) }),
+  { status: 201 },
+);
 const json = {
   openapi: "3.1.0",
   info: {

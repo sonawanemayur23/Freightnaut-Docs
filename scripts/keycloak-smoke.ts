@@ -68,7 +68,14 @@ try {
   await page.locator('input[name="username"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.locator('input[name="login"],button[name="login"]').click();
-  await page.getByRole("heading", { name: "You’re signed in." }).waitFor();
+  await page
+    .getByRole("heading", {
+      name:
+        process.env.LOCAL_SELF_SERVICE_SIGNUP === "true"
+          ? "Welcome. Let’s set up your workspace."
+          : "You’re signed in.",
+    })
+    .waitFor();
   assert.deepEqual(errors, []);
   const user = (
     await pool.query("SELECT id FROM users WHERE issuer=$1 AND email=$2", [

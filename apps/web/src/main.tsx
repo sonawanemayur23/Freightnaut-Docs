@@ -22,6 +22,9 @@ import { TeamPage } from "./TeamPage";
 import { AccountsPage, AuditPage, PlatformPage } from "./AdminPages";
 import "./style.css";
 function App() {
+  const [localSignup, setLocalSignup] = useState(false),
+    [companyName, setCompanyName] = useState(""),
+    [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [session, setSession] = useState<SessionContext | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
@@ -79,7 +82,10 @@ function App() {
         if (!r.ok) throw new Error("Sign-in service unavailable.");
         return r.json();
       })
-      .then((r) => setProviders(r.providers))
+      .then((r) => {
+        setProviders(r.providers);
+        setLocalSignup(r.registration === "local-self-service");
+      })
       .catch((e) => setError(e.message));
   }, []);
   const tenant = session?.tenants.find((t) => t.id === active),
@@ -141,8 +147,9 @@ function App() {
             </a>
           ))}
           <p className="auth-note">
-            Access is granted by invitation. Sign-in alone does not grant
-            workspace access.
+            {localSignup
+              ? "New here? Choose Register on the next screen. You can create your workspace immediately after signing up."
+              : "Access is granted by invitation. Sign-in alone does not grant workspace access."}
           </p>
         </div>
       </div>
@@ -298,15 +305,61 @@ function App() {
           {!active && !session.operator && (
             <section className="empty-state">
               <ShieldCheck size={28} />
-              <h1>You’re signed in.</h1>
-              <p>
-                No workspace has been assigned yet. Accept your invitation or
-                contact your administrator.
-              </p>
-              <details>
-                <summary>Account identifier for your administrator</summary>
-                <code>{session.user.id}</code>
-              </details>
+              <h1>
+                {localSignup
+                  ? "Welcome. Let’s set up your workspace."
+                  : "You’re signed in."}
+              </h1>
+              {localSignup ? (
+                <form
+                  className="onboarding-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setCreatingWorkspace(true);
+                    setError("");
+                    void api<{ workspaceId: string }>(
+                      "/api/onboarding/workspace",
+                      { method: "POST", body: JSON.stringify({ companyName }) },
+                    )
+                      .then(async (result) => {
+                        setActive(result.workspaceId);
+                        setPage("shipments");
+                        await refresh();
+                      })
+                      .catch((error) => setError(error.message))
+                      .finally(() => setCreatingWorkspace(false));
+                  }}
+                >
+                  <p>Enter your company name to get started.</p>
+                  <label>
+                    Company name
+                    <input
+                      autoFocus
+                      required
+                      maxLength={200}
+                      value={companyName}
+                      onChange={(event) => setCompanyName(event.target.value)}
+                      autoComplete="organization"
+                    />
+                  </label>
+                  <button className="primary" disabled={creatingWorkspace}>
+                    {creatingWorkspace
+                      ? "Creating your workspace…"
+                      : "Create workspace"}
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <p>
+                    No workspace has been assigned yet. Accept your invitation
+                    or contact your administrator.
+                  </p>
+                  <details>
+                    <summary>Account identifier for your administrator</summary>
+                    <code>{session.user.id}</code>
+                  </details>
+                </>
+              )}
             </section>
           )}
           {active && tenant && !settings && (

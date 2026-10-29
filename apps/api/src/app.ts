@@ -14,6 +14,7 @@ import {
   requireCsrf,
   type Actor,
 } from "./auth/session.js";
+import { registerOnboarding } from "./tenancy/onboarding.js";
 import { registerTenancy } from "./tenancy/routes.js";
 import { registerShipments } from "./shipments/routes.js";
 import { HttpError } from "./errors.js";
@@ -140,6 +141,7 @@ export async function buildApp(config: AppConfig, pool: Pool) {
   });
   registerAuth(app, pool, config);
   registerTenancy(app, pool, config);
+  registerOnboarding(app, pool, config);
   registerShipments(app, pool, config);
   if (config.NODE_ENV === "production" || config.SERVE_WEB === "true") {
     await app.register(staticPlugin, {

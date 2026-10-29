@@ -28,7 +28,10 @@ export function registerAuth(
   };
   app.get("/api/auth/providers", async () => ({
     providers: config.OIDC_PROVIDERS.map(({ id, name }) => ({ id, name })),
-    registration: "invitation-only",
+    registration:
+      config.LOCAL_SELF_SERVICE_SIGNUP === "true"
+        ? "local-self-service"
+        : "invitation-only",
   }));
   app.get<{ Params: { providerId: string } }>(
     "/api/auth/login/:providerId",

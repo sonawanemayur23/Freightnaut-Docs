@@ -2456,6 +2456,69 @@
           }
         }
       }
+    },
+    "/api/onboarding/workspace": {
+      "post": {
+        "operationId": "onboardLocalWorkspace",
+        "summary": "Explicit local-development-only self-service; creates new isolated workspaces, never joins existing tenants",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": {
+            "description": "Rate or rendering concurrency limit"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "companyName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": ["companyName"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

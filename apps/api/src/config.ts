@@ -7,6 +7,7 @@ const providerSchema = z.strictObject({
   clientSecret: z.string().min(1),
 });
 const schema = z.object({
+  LOCAL_SELF_SERVICE_SIGNUP: z.enum(["true", "false"]).default("false"),
   SERVE_WEB: z.enum(["true", "false"]).default("false"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -71,6 +72,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     throw new Error("Provider IDs must be unique");
   const local = (url: URL) =>
     ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (
+    parsed.LOCAL_SELF_SERVICE_SIGNUP === "true" &&
+    (parsed.NODE_ENV !== "development" ||
+      !local(origin) ||
+      !local(database) ||
+      parsed.OIDC_PROVIDERS.some(
+        (provider) => !local(new URL(provider.issuer)),
+      ))
+  )
+    throw new Error(
+      "Local self-service signup requires development mode and loopback-only app, database and identity provider.",
+    );
   for (const provider of parsed.OIDC_PROVIDERS) {
     const issuer = new URL(provider.issuer);
     if (issuer.username || issuer.password || issuer.search || issuer.hash)
