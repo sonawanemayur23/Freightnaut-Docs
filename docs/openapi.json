@@ -1,0 +1,260 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Freightnaut Docs local pilot",
+    "version": "0.1.0",
+    "description": "Local test draft API. No live issuance or authentication. Bind to loopback only."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3001"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Local service status"
+          }
+        }
+      }
+    },
+    "/api/sample": {
+      "get": {
+        "operationId": "sampleShipment",
+        "responses": {
+          "200": {
+            "description": "Sample shipment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Shipment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/validate": {
+      "post": {
+        "operationId": "validateShipment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Shipment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pilot validation issues with field paths"
+          },
+          "400": {
+            "description": "Malformed shipment"
+          }
+        }
+      }
+    },
+    "/api/documents/{type}/pdf": {
+      "post": {
+        "operationId": "downloadDraft",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["invoice", "packing-list"]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Shipment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test draft PDF; data blockers do not prevent draft download",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document type or shipment"
+          },
+          "503": {
+            "description": "Chromium rendering unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Shipment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "buyerPo": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "exporter": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "address": {
+                "type": "string",
+                "maxLength": 1500
+              },
+              "taxId": {
+                "type": "string",
+                "maxLength": 100
+              }
+            },
+            "required": ["name", "address", "taxId"],
+            "additionalProperties": false
+          },
+          "consignee": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "address": {
+                "type": "string",
+                "maxLength": 1500
+              },
+              "taxId": {
+                "type": "string",
+                "maxLength": 100
+              }
+            },
+            "required": ["name", "address", "taxId"],
+            "additionalProperties": false
+          },
+          "currency": {
+            "type": "string",
+            "const": "USD"
+          },
+          "incoterm": {
+            "type": "string",
+            "enum": ["CIF", "FOB", "EXW"]
+          },
+          "portOfLoading": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "portOfDischarge": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "packages": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "netKg": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "grossKg": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "items": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "hsCode": {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                "quantity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "unit": {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                "unitPrice": {
+                  "type": "string",
+                  "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                }
+              },
+              "required": [
+                "id",
+                "description",
+                "hsCode",
+                "quantity",
+                "unit",
+                "unitPrice"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "buyerPo",
+          "exporter",
+          "consignee",
+          "currency",
+          "incoterm",
+          "portOfLoading",
+          "portOfDischarge",
+          "packages",
+          "netKg",
+          "grossKg",
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

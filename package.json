@@ -1,0 +1,30 @@
+{
+  "name": "freightnaut-docs",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm run dev -w @freightnaut/api\" \"npm run dev -w @freightnaut/web\"",
+    "build": "npm run typecheck && npm run build -w @freightnaut/web",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "browser:install": "playwright install chromium",
+    "docs:generate": "node --import tsx scripts/openapi.ts",
+    "test:smoke": "node --import tsx scripts/smoke.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "concurrently": "^9.2.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.5"
+  }
+}
