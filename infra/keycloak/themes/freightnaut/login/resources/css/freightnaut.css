@@ -1,0 +1,128 @@
+@font-face {
+  font-family: Freightnaut;
+  src: url("../fonts/dm-sans-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: Freightnaut;
+  src: url("../fonts/dm-sans-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+:root {
+  --pf-v5-global--FontFamily--text: Freightnaut, system-ui, sans-serif;
+  --pf-v5-global--primary-color--100: #173f76;
+  --pf-v5-global--link--Color: #244f8a;
+  --pf-v5-global--BackgroundColor--100: #fff;
+  --pf-v5-global--Color--100: #132943;
+}
+body {
+  font-family: Freightnaut, system-ui, sans-serif !important;
+  background: #f3f5f8 !important;
+  color: #132943;
+}
+.pf-v5-c-login {
+  background: #f3f5f8 !important;
+  min-height: 100vh;
+}
+.pf-v5-c-login__container {
+  max-width: 480px !important;
+  margin: auto !important;
+  padding: 48px 22px !important;
+  grid-template-columns: 1fr !important;
+}
+.pf-v5-c-login__header {
+  padding: 0 0 28px !important;
+  color: #0b2343 !important;
+  font-size: 23px !important;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+}
+.pf-v5-c-login__main {
+  border: 1px solid #dce3ec;
+  border-radius: 18px;
+  box-shadow: 0 12px 40px #13294308 !important;
+  overflow: hidden;
+  background: white !important;
+}
+.pf-v5-c-login__main-header {
+  padding: 32px 32px 20px !important;
+}
+.pf-v5-c-login__main-body {
+  padding: 0 32px 30px !important;
+}
+.pf-v5-c-title {
+  font-size: 25px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.7px;
+  color: #0b2343 !important;
+}
+.pf-v5-c-form__label {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+.pf-v5-c-form-control {
+  border: 1px solid #c8d2df !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  min-height: 44px;
+  color: #132943 !important;
+}
+.pf-v5-c-form-control:focus-within {
+  outline: 3px solid #4269e62e;
+  outline-offset: 1px;
+  border-color: #4269e6 !important;
+}
+.pf-v5-c-button.pf-m-primary {
+  background: #ffad09 !important;
+  color: #102441 !important;
+  border-radius: 8px !important;
+  min-height: 46px;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+.pf-v5-c-button.pf-m-primary:hover {
+  background: #f6a000 !important;
+}
+a {
+  color: #28588f !important;
+  text-underline-offset: 3px;
+}
+#kc-registration-container {
+  border-top: 1px solid #e3e8ef;
+  padding: 22px 32px !important;
+  background: #fafbfd !important;
+  font-size: 14px;
+}
+#kc-info-wrapper {
+  background: #fafbfd !important;
+}
+@media (max-width: 520px) {
+  .pf-v5-c-login__container {
+    padding: 28px 16px !important;
+  }
+  .pf-v5-c-login__main-header {
+    padding: 26px 24px 20px !important;
+  }
+  .pf-v5-c-login__main-body {
+    padding: 0 24px 26px !important;
+  }
+}
+
+#kc-header-wrapper {
+  color: #132943 !important;
+  letter-spacing: -0.6px !important;
+  font-size: 23px !important;
+  text-transform: none !important;
+}
+#kc-header {
+  color: #132943 !important;
+}
+.pf-v5-c-login__main {
+  border-top: 3px solid #ffad09 !important;
+}
+.pf-v5-c-form-control::before,
+.pf-v5-c-form-control::after {
+  border: 0 !important;
+}

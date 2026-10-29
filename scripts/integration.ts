@@ -407,6 +407,74 @@ try {
     409,
   );
   check("optimistic concurrency prevents lost shipment updates");
+  // Search treats user input literally; cursor ordering survives equal timestamps.
+  const repeated = await expectStatus(
+    await request(preparer, "POST", path + "/copy"),
+    201,
+  );
+  assert.equal(repeated.data.id, "");
+  assert.equal(repeated.data.consignee.name, data.consignee.name);
+  assert.notEqual(repeated.data.items[0].id, data.items[0].id);
+  assert.equal(
+    (await request(reviewer, "POST", path + "/copy")).statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(outsider, "POST", path + "/copy")).statusCode,
+    403,
+  );
+  const literal = await expectStatus(
+    await request(preparer, "POST", base + "/shipments", {
+      ...data,
+      id: "literal%_reference",
+    }),
+    201,
+  );
+  const searchResult = await expectStatus(
+    await request(
+      preparer,
+      "GET",
+      base + "/shipments?q=" + encodeURIComponent("%_"),
+    ),
+    200,
+  );
+  assert.deepEqual(
+    searchResult.shipments.map((row: any) => row.id),
+    [literal.id],
+  );
+  await owner.query(
+    "UPDATE shipments SET updated_at='2026-01-01T00:00:00.123456Z' WHERE id=ANY($1::uuid[])",
+    [[shipment.id, repeated.id, literal.id]],
+  );
+  const seen: string[] = [];
+  let cursor: string | null = null;
+  do {
+    const result = await expectStatus(
+      await request(
+        preparer,
+        "GET",
+        base +
+          "/shipments?limit=1" +
+          (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""),
+      ),
+      200,
+    );
+    seen.push(...result.shipments.map((row: any) => row.id));
+    cursor = result.nextCursor;
+  } while (cursor && seen.length < 10);
+  assert.equal(new Set(seen).size, 3);
+  assert.equal(seen.length, 3);
+  assert.equal(
+    (await request(preparer, "GET", base + "/shipments?cursor=invalid"))
+      .statusCode,
+    400,
+  );
+  await owner.query("DELETE FROM shipments WHERE id=ANY($1::uuid[])", [
+    [repeated.id, literal.id],
+  ]);
+  check(
+    "literal search, stable cursor pagination, isolated shipment copying and reviewer restrictions",
+  );
   assert.equal((await pool.query("SELECT id FROM shipments")).rowCount, 0);
   const isolated = await transaction(pool, outsider.userId, (db) =>
     db.query("SELECT id FROM shipments WHERE id=$1", [shipment.id]),
@@ -942,6 +1010,10 @@ try {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto(config.PUBLIC_ORIGIN);
+    await page.screenshot({
+      path: "../work/ui-refresh/signin.png",
+      fullPage: true,
+    });
     await page
       .getByRole("link", { name: "Continue with Test identity" })
       .click();
@@ -975,14 +1047,14 @@ try {
       .getByRole("textbox", { name: "Shipment reference", exact: true })
       .fill("BROWSER-001");
     await page
-      .getByRole("textbox", { name: "Origin country (ISO code)", exact: true })
-      .fill("DE");
+      .getByRole("combobox", { name: "Origin country", exact: true })
+      .selectOption("DE");
     await page
-      .getByRole("textbox", {
-        name: "Destination country (ISO code)",
+      .getByRole("combobox", {
+        name: "Destination country",
         exact: true,
       })
-      .fill("US");
+      .selectOption("US");
     assert.equal(
       await page.locator('[id="custom.inspection_ref"]').inputValue(),
       "INS-DEFAULT",
@@ -991,11 +1063,6 @@ try {
     await page.getByText("Saved", { exact: true }).waitFor();
     await page.reload();
     await page.getByRole("combobox", { name: "Active workspace" }).waitFor();
-    await page
-      .getByRole("combobox", { name: "Active workspace" })
-      .selectOption(account.id);
-    const row = page.getByRole("row").filter({ hasText: "BROWSER-001" });
-    await row.getByRole("button", { name: "Open", exact: true }).click();
     await page
       .getByRole("button", { name: "Goods & packages", exact: false })
       .click();
@@ -1010,12 +1077,66 @@ try {
       path: "../work/auth-verification/workspace.png",
       fullPage: true,
     });
+    // Navigate immediately after an edit: the pending autosave must finish first.
+    await page
+      .getByRole("textbox", { name: "Description line 1", exact: true })
+      .fill("Browser goods saved on navigation");
+    await page
+      .getByRole("button", { name: "Workspace settings", exact: true })
+      .click();
+    await page
+      .getByRole("heading", { name: "Workspace settings", exact: true })
+      .waitFor();
+    await page.screenshot({
+      path: "../work/ui-refresh/settings.png",
+      fullPage: true,
+    });
+    await page
+      .getByRole("button", { name: "People & access", exact: true })
+      .click();
+    await page
+      .getByRole("heading", { name: "People & access", exact: true })
+      .waitFor();
+    await page.screenshot({
+      path: "../work/ui-refresh/people.png",
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Shipments", exact: true }).click();
+    const browserRow = page.getByRole("row").filter({ hasText: "BROWSER-001" });
+    await browserRow.waitFor();
+    await page.screenshot({
+      path: "../work/ui-refresh/shipments.png",
+      fullPage: true,
+    });
+    await browserRow.getByRole("button", { name: "Open", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Goods & packages", exact: false })
+      .click();
+    assert.equal(
+      await page
+        .getByRole("textbox", { name: "Description line 1", exact: true })
+        .inputValue(),
+      "Browser goods saved on navigation",
+    );
     await page.setViewportSize({ width: 390, height: 844 });
     assert(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
+    await page
+      .frameLocator("iframe")
+      .getByText("Browser goods saved on navigation", { exact: true })
+      .waitFor();
+    await page.screenshot({
+      path: "../work/ui-refresh/mobile.png",
+      fullPage: true,
+    });
+    await page.locator(".preview-panel").scrollIntoViewIfNeeded();
+    await page
+      .locator("iframe")
+      .screenshot({ path: "../work/ui-refresh/mobile-document.png" });
+    await page.screenshot({ path: "../work/ui-refresh/mobile-preview.png" });
     await page.setViewportSize({ width: 1440, height: 1100 });
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await page

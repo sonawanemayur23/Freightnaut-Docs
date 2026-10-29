@@ -1,7 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigationGuard } from "./navigation";
+import { countryOptions } from "./countries";
 import { CustomFields } from "./CustomFields";
 import {
   ArrowRight,
+  ArrowLeft,
+  ChevronRight,
+  LoaderCircle,
+  RotateCcw,
+  ShieldCheck,
   Check,
   Download,
   FileText,
@@ -71,8 +78,11 @@ function DocumentPreview({
             : "Packing list preview"
         }
         sandbox=""
-        srcDoc={renderDocument(shipment, type, settings)}
-        style={{ transform: `scale(${scale})` }}
+        srcDoc={renderDocument(shipment, type, settings).replace(
+          "</head>",
+          `<style>html{zoom:${scale}}</style></head>`,
+        )}
+        style={{ width: "100%", height: 1123 * scale }}
       />
     </div>
   );
@@ -95,6 +105,16 @@ export function ShipmentEditor({
   canDownload: boolean;
   onBack: () => void;
 }) {
+  const registerGuard = useNavigationGuard();
+  const countries = useMemo(
+    () => countryOptions(settings.locale),
+    [settings.locale],
+  );
+  const [focusField, setFocusField] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<{
+    item: Shipment["items"][number];
+    index: number;
+  } | null>(null);
   const [shipment, setShipment] = useState(initial.data),
     [step, setStep] = useState(canWrite ? 0 : 3),
     [doc, setDoc] = useState<DocumentType>("invoice");
@@ -182,6 +202,13 @@ export function ShipmentEditor({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
+  useEffect(() => registerGuard(flush), [registerGuard, path, canWrite]);
+  useEffect(() => {
+    if (focusField) {
+      document.getElementById(focusField)?.focus();
+      setFocusField(null);
+    }
+  }, [step, focusField]);
   function patch<K extends keyof Shipment>(key: K, value: Shipment[K]) {
     if (canWrite) setShipment((s) => ({ ...s, [key]: value }));
   }
@@ -242,30 +269,74 @@ export function ShipmentEditor({
     <>
       <div className="editor-toolbar">
         <button
-          className="secondary"
+          className="text-button editor-back"
           onClick={() => {
             void flush()
               .then(onBack)
-              .catch((e) => setError(e.message));
+              .catch((error) => setError(error.message));
           }}
         >
-          ← Shipments
+          <ArrowLeft size={16} />
+          Shipments
         </button>
-        <span>{canWrite ? save : "Read-only access"}</span>
-        <span>
-          {countryName(shipment.originCountry, settings.locale)} →{" "}
-          {countryName(shipment.destinationCountry, settings.locale)}
+        <div
+          className={"save-indicator " + (error ? "save-error" : "")}
+          role="status"
+        >
+          {save === "Saving…" ? (
+            <LoaderCircle size={15} className="spin" />
+          ) : (
+            <CheckCircle2 size={15} />
+          )}
+          <span>{canWrite ? save : "Read-only access"}</span>
+        </div>
+      </div>
+      <div className="editor-title-row">
+        <div>
+          <h1>
+            {shipment.id || "New shipment"}
+            <span className="status-pill status-neutral">Draft</span>
+          </h1>
+          <p>
+            {shipment.originCountry && shipment.destinationCountry ? (
+              <>
+                {countryName(shipment.originCountry, settings.locale)}
+                <ArrowRight size={14} />
+                {countryName(shipment.destinationCountry, settings.locale)}
+              </>
+            ) : (
+              "Complete the details to prepare your shipment documents."
+            )}
+          </p>
+        </div>
+        <span className="editor-security">
+          <ShieldCheck size={15} />
+          Only people with access can view this shipment
         </span>
-        <strong>{shipment.id || "Untitled shipment"}</strong>
       </div>
       <div className="stepper">
         {steps.map((name, i) => (
           <button
             key={name}
             onClick={() => setStep(i)}
-            className={step === i ? "selected" : step > i ? "complete" : ""}
+            aria-current={step === i ? "step" : undefined}
+            className={
+              step === i
+                ? "selected"
+                : step > i &&
+                    !issues.some((issue) => issueStep(issue.field) === i)
+                  ? "complete"
+                  : ""
+            }
           >
-            <span>{step > i ? <Check size={14} /> : i + 1}</span>
+            <span>
+              {step > i &&
+              !issues.some((issue) => issueStep(issue.field) === i) ? (
+                <Check size={14} />
+              ) : (
+                i + 1
+              )}
+            </span>
             {name}
             {i < 3 && <i />}
           </button>
@@ -295,6 +366,12 @@ export function ShipmentEditor({
           >
             {step === 0 && (
               <div className="party-forms">
+                <div className="shipment-reference-field">
+                  {field("Shipment reference", "id")}
+                  <p className="field-hint">
+                    Use your own reference to find this shipment later.
+                  </p>
+                </div>
                 {(["exporter", "consignee"] as const).map((key) => (
                   <section className="subcard" key={key}>
                     <h3>
@@ -352,13 +429,25 @@ export function ShipmentEditor({
                       </tr>
                     </thead>
                     <tbody>
+                      {shipment.items.length === 0 && (
+                        <tr className="goods-empty">
+                          <td colSpan={6}>
+                            <Package size={25} />
+                            <strong>No goods added yet</strong>
+                            <span>
+                              Add a line for each product in this shipment.
+                            </span>
+                          </td>
+                        </tr>
+                      )}
                       {shipment.items.map((item, index) => (
                         <tr key={item.id}>
-                          <td>
+                          <td data-label="Product description">
                             <div className="item-number">
                               {String(index + 1).padStart(2, "0")}
                             </div>
-                            <input
+                            <textarea
+                              rows={2}
                               aria-label={"Description line " + (index + 1)}
                               id={`items.${index}.description`}
                               value={item.description}
@@ -374,7 +463,7 @@ export function ShipmentEditor({
                               )}
                             </small>
                           </td>
-                          <td>
+                          <td data-label="HS code">
                             <input
                               aria-label={"HS code line " + (index + 1)}
                               id={`items.${index}.hsCode`}
@@ -384,7 +473,7 @@ export function ShipmentEditor({
                               }
                             />
                           </td>
-                          <td>
+                          <td data-label="Quantity & unit">
                             <input
                               aria-label={"Quantity line " + (index + 1)}
                               id={`items.${index}.quantity`}
@@ -399,9 +488,17 @@ export function ShipmentEditor({
                                 )
                               }
                             />
-                            <small>{item.unit}</small>
+                            <input
+                              className="unit-input"
+                              aria-label={"Unit line " + (index + 1)}
+                              value={item.unit}
+                              maxLength={20}
+                              onChange={(event) =>
+                                updateItem(index, "unit", event.target.value)
+                              }
+                            />
                           </td>
-                          <td>
+                          <td data-label="Unit price">
                             <input
                               aria-label={"Unit price line " + (index + 1)}
                               value={item.unitPrice}
@@ -419,7 +516,7 @@ export function ShipmentEditor({
                               }}
                             />
                           </td>
-                          <td className="right amount">
+                          <td className="right amount" data-label="Amount">
                             {formatMoney(
                               totalAmount({ ...shipment, items: [item] }),
                             )}
@@ -428,12 +525,13 @@ export function ShipmentEditor({
                             <button
                               className="icon-button"
                               aria-label={"Remove line " + (index + 1)}
-                              onClick={() =>
+                              onClick={() => (
+                                setRemoved({ item, index }),
                                 patch(
                                   "items",
                                   shipment.items.filter((_, i) => i !== index),
                                 )
-                              }
+                              )}
                             >
                               <Trash2 size={14} />
                             </button>
@@ -461,6 +559,27 @@ export function ShipmentEditor({
                 >
                   <Plus size={16} /> Add goods line
                 </button>
+                {removed && (
+                  <div className="undo-notice" role="status">
+                    <span>Goods line removed.</span>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        const next = [...shipment.items];
+                        next.splice(
+                          Math.min(removed.index, next.length),
+                          0,
+                          removed.item,
+                        );
+                        patch("items", next);
+                        setRemoved(null);
+                      }}
+                    >
+                      <RotateCcw size={14} />
+                      Undo
+                    </button>
+                  </div>
+                )}
                 <div className="total-row">
                   <span>SHIPMENT VALUE</span>
                   <strong>
@@ -504,28 +623,27 @@ export function ShipmentEditor({
               <div className="terms-fields">
                 {field("Shipment reference", "id")}
                 {field("Shipment date", "date")}
-                <label>
-                  Origin country (ISO code)
-                  <input
-                    id="originCountry"
-                    value={shipment.originCountry}
-                    maxLength={2}
-                    onChange={(e) =>
-                      patch("originCountry", e.target.value.toUpperCase())
-                    }
-                  />
-                </label>
-                <label>
-                  Destination country (ISO code)
-                  <input
-                    id="destinationCountry"
-                    value={shipment.destinationCountry}
-                    maxLength={2}
-                    onChange={(e) =>
-                      patch("destinationCountry", e.target.value.toUpperCase())
-                    }
-                  />
-                </label>
+                {(["originCountry", "destinationCountry"] as const).map(
+                  (key) => (
+                    <label key={key}>
+                      {key === "originCountry"
+                        ? "Origin country"
+                        : "Destination country"}
+                      <select
+                        id={key}
+                        value={shipment[key]}
+                        onChange={(event) => patch(key, event.target.value)}
+                      >
+                        <option value="">Choose a country</option>
+                        {countries.map((country) => (
+                          <option value={country.code} key={country.code}>
+                            {country.name} ({country.code})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ),
+                )}
                 {field("Buyer PO reference", "buyerPo")}
                 <label>
                   Incoterm
@@ -587,21 +705,8 @@ export function ShipmentEditor({
                     className="issue"
                     key={issue.id}
                     onClick={() => {
-                      const target =
-                        issue.field.startsWith("items") ||
-                        ["packages", "grossKg"].includes(issue.field)
-                          ? 1
-                          : issue.field === "buyerPo" ||
-                              issue.field.startsWith("custom.") ||
-                              issue.field === "originCountry" ||
-                              issue.field === "destinationCountry"
-                            ? 2
-                            : 0;
-                      setStep(target);
-                      setTimeout(
-                        () => document.getElementById(issue.field)?.focus(),
-                        50,
-                      );
+                      setStep(issueStep(issue.field));
+                      setFocusField(issue.field);
                     }}
                   >
                     <AlertCircle size={16} />
@@ -618,24 +723,29 @@ export function ShipmentEditor({
                   <p>Commercial invoice · Packing list</p>
                   <p>Both use the shipment data shown in this workspace.</p>
                 </div>
-                <button
-                  className="primary"
-                  disabled={downloading || !canDownload}
-                  onClick={download}
-                >
-                  <Download size={16} />
-                  {downloading ? "Preparing PDF…" : "Download selected draft"}
-                </button>
               </div>
             )}
           </fieldset>
           {error && (
             <div role="alert" className="error">
               {error}
+              {!blocked.current && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    void flush().catch(() => {});
+                  }}
+                >
+                  Retry saving
+                </button>
+              )}
             </div>
           )}
           <div className="form-footer">
-            <span>Changes save to your workspace.</span>
+            <span>
+              <CheckCircle2 size={14} />
+              Changes save automatically
+            </span>
             <button
               className="secondary"
               disabled={step === 0}
@@ -643,6 +753,16 @@ export function ShipmentEditor({
             >
               Back
             </button>
+            {step === 3 && (
+              <button
+                className="primary"
+                disabled={downloading || !canDownload}
+                onClick={download}
+              >
+                <Download size={16} />
+                {downloading ? "Preparing PDF…" : "Download selected draft"}
+              </button>
+            )}
             {step < 3 && (
               <button className="primary" onClick={() => setStep(step + 1)}>
                 Continue <ArrowRight size={15} />
@@ -653,7 +773,7 @@ export function ShipmentEditor({
         <aside className="preview-panel">
           <div className="preview-heading">
             <div>
-              <span className="live-dot" /> LIVE PREVIEW
+              <span className="live-dot" /> Live document preview
             </div>
             <button
               className="icon-button"
@@ -682,13 +802,13 @@ export function ShipmentEditor({
           </div>
           <DocumentPreview shipment={shipment} type={doc} settings={settings} />
           <div className="preview-caption">
-            <span>A4 · Portrait</span>
+            <span>A4 portrait</span>
             <span>Account template</span>
           </div>
           <div className="check-summary">
             <span className={blockers.length ? "warning-dot" : "live-dot"} />
             {blockers.length
-              ? `${blockers.length} blockers to review`
+              ? `${blockers.length} ${blockers.length === 1 ? "detail" : "details"} to review`
               : "Data checks passed"}
             <button onClick={() => setStep(3)}>
               Review checks <ArrowRight size={12} />
@@ -698,4 +818,19 @@ export function ShipmentEditor({
       </div>
     </>
   );
+}
+
+function issueStep(field: string) {
+  if (
+    field.startsWith("items") ||
+    ["packages", "grossKg", "netKg"].includes(field)
+  )
+    return 1;
+  if (
+    field === "buyerPo" ||
+    field.startsWith("custom.") ||
+    ["originCountry", "destinationCountry", "date"].includes(field)
+  )
+    return 2;
+  return 0;
 }

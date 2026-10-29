@@ -36,6 +36,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Run npm run setup:local}
     ports: ["127.0.0.1:8080:8080"]
     volumes:
+      - ./infra/keycloak/themes/freightnaut:/opt/keycloak/themes/freightnaut:ro
       - keycloak:/opt/keycloak/data
       - ./.local/keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
   mailpit:

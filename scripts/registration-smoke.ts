@@ -25,10 +25,12 @@ try {
   const page = await browser.newPage();
   await page.goto(process.env.PUBLIC_ORIGIN!);
   await page
-    .getByRole("link", { name: /Continue with/ })
-    .first()
+    .getByRole("link", { name: "Create an account", exact: true })
     .click();
-  await page.getByRole("link", { name: "Register", exact: true }).click();
+  await page.screenshot({
+    path: "../work/ui-refresh/registration.png",
+    fullPage: true,
+  });
   await page.locator("#email").fill(email);
   await page.locator("#password").fill(password);
   await page.locator("#password-confirm").fill(password);

@@ -533,7 +533,7 @@ export function registerTenancy(
         return {
           events: (
             await db.query(
-              "SELECT id,actor_id,action,resource_id,metadata,created_at FROM audit_events WHERE tenant_id=$1 ORDER BY created_at DESC,id DESC LIMIT 100",
+              "SELECT e.id,e.actor_id,u.name AS actor_name,u.email AS actor_email,e.action,e.resource_id,e.metadata,e.created_at FROM audit_events e JOIN users u ON u.id=e.actor_id WHERE e.tenant_id=$1 ORDER BY e.created_at DESC,e.id DESC LIMIT 100",
               [tenantId],
             )
           ).rows,

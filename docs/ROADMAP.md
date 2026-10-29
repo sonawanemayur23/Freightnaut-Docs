@@ -4,6 +4,10 @@
 
 OIDC, server sessions, MFA-gated administration, tenant memberships, bounded custom roles, verified invitations, scoped collaborators, Postgres/RLS, versioned configuration with locks, custom fields, persisted shipment drafts, concurrency protection, audit and authorized PDFs. Local identity infrastructure is real; production Auth0 credentials have not been provisioned.
 
+## Implemented: workspace experience
+
+A consistent responsive workspace, self-hosted typography, branded local identity screens, focused company/trade/document/branding settings, role-aware team management, searchable shipment summaries, cursor pagination and authorized shipment copying. Shipment edits flush before navigation; selected records survive reloads. Configuration keeps explicit saves and unsaved-change protection. Metrics and readiness come from persisted authorized records; the app seeds no customer examples.
+
 ## Next: document lifecycle and jobs
 
 Move Chromium into a bounded BullMQ worker. Persist job state and an outbox in Postgres; use idempotent job/issue keys. Store files privately with authorized expiring downloads. Introduce transactional document numbering, immutable input/template/rule snapshots, PDF hashes, amendment reasons and retained originals. A failed render cannot reuse an allocated number or report a successful issuance.

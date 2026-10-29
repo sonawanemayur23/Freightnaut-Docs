@@ -1,3 +1,5 @@
+import { PageHeader, Dialog, CopyLink, Skeleton } from "./ui";
+import { Plus, Building2, History, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { TenantAccess } from "@freightnaut/domain";
 import type { ApiClient } from "./api";
@@ -134,58 +136,102 @@ export function AuditPage({
       {
         id: string;
         action: string;
-        actor_id: string;
+        actor_name: string;
+        actor_email: string;
         resource_id: string;
+        metadata: Record<string, unknown>;
         created_at: string;
       }[]
     >([]),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true);
   useEffect(() => {
     void api<{ events: typeof events }>(`/api/tenants/${tenant.id}/audit`)
-      .then((r) => setEvents(r.events))
-      .catch((e) => setError(e.message));
+      .then((value) => setEvents(value.events))
+      .catch((error) => setError(error.message))
+      .finally(() => setLoading(false));
   }, []);
+  const actionNames: Record<string, string> = {
+    "shipment.created": "Created a shipment",
+    "shipment.updated": "Updated shipment details",
+    "shipment.copied": "Copied a shipment",
+    "document.draft_downloaded": "Downloaded a draft document",
+    "settings.updated": "Updated workspace settings",
+    "role.created": "Created a workspace role",
+    "role.updated": "Updated a workspace role",
+    "membership.updated": "Changed a person’s access",
+    "invitation.created": "Created an invitation",
+    "invitation.accepted": "Accepted an invitation",
+    "invitation.revoked": "Revoked an invitation",
+    "collaborator.revoked": "Removed shipment access",
+    "account.created": "Created a customer account",
+    "workspace.created": "Created the workspace",
+    "workspace.bootstrapped": "Set up workspace access",
+  };
   return (
     <>
-      <div className="page-heading">
-        <div>
-          <div className="eyebrow">WORKSPACE ACTIVITY</div>
-          <h1>Audit history</h1>
-          <p>The most recent 100 administrative and document events.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Workspace activity"
+        description="A clear record of the changes made by your team."
+      />
       {error && (
-        <div role="alert" className="error">
+        <div className="error" role="alert">
           {error}
         </div>
       )}
-      <div className="admin-card table-scroll">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Action</th>
-              <th>Actor</th>
-              <th>Resource</th>
-              <th>Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((event) => (
-              <tr key={event.id}>
-                <td>{event.action}</td>
-                <td>
-                  <code>{event.actor_id}</code>
-                </td>
-                <td>
-                  <code>{event.resource_id}</code>
-                </td>
-                <td>{new Date(event.created_at).toISOString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!events.length && <p>No events yet.</p>}
-      </div>
+      {loading ? (
+        <Skeleton label="Loading workspace activity" />
+      ) : (
+        <div className="admin-card table-scroll">
+          {events.length ? (
+            <table className="admin-table activity-table">
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>By</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event) => (
+                  <tr key={event.id}>
+                    <td>
+                      <span className="activity-action">
+                        <span className="activity-dot" />
+                        {actionNames[event.action] ??
+                          event.action
+                            .replaceAll(".", " ")
+                            .replaceAll("_", " ")}
+                      </span>
+                      {typeof event.metadata.version === "number" && (
+                        <small>Shipment version {event.metadata.version}</small>
+                      )}
+                    </td>
+                    <td>
+                      <strong>{event.actor_name || event.actor_email}</strong>
+                    </td>
+                    <td>
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(event.created_at))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="search-empty">
+              <History size={27} />
+              <h3>Your activity will appear here</h3>
+              <p>
+                Changes to shipments, settings and access are recorded
+                automatically.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

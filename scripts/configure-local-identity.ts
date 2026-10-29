@@ -44,6 +44,15 @@ const headers = {
   "Content-Type": "application/json",
 };
 const root = issuer.origin + "/admin" + issuer.pathname;
+const themed = await fetch(root, {
+  method: "PUT",
+  headers,
+  body: JSON.stringify({
+    loginTheme: "freightnaut",
+    displayName: "Freightnaut Docs",
+  }),
+});
+if (!themed.ok) throw new Error("Could not apply the local sign-in theme.");
 const response = await fetch(root + "/users/profile", { headers });
 if (!response.ok)
   throw new Error("Could not read the local registration profile.");

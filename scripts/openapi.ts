@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { z } from "zod";
+import { format } from "prettier";
 import {
   shipmentSchema,
   workspaceSettingsSchema,
@@ -268,8 +269,11 @@ operation(
     query: [
       {
         name: "limit",
-        schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+        schema: { type: "integer", minimum: 1, maximum: 100, default: 25 },
       },
+      { name: "q", schema: { type: "string", maxLength: 200 } },
+      { name: "recent", schema: { type: "string", enum: ["true", "false"] } },
+      { name: "cursor", schema: { type: "string", maxLength: 512 } },
       { name: "before", schema: { type: "string", format: "date-time" } },
     ],
   },
@@ -280,6 +284,14 @@ operation(
   "createShipment",
   "Persist a new account draft; requires shipment.write",
   shipmentSchema,
+  { status: 201 },
+);
+operation(
+  "post",
+  s + "/copy",
+  "copyShipment",
+  "Copy an authorized shipment into a new unnumbered draft with new goods-line identifiers",
+  undefined,
   { status: 201 },
 );
 operation(
@@ -369,5 +381,5 @@ const json = {
 };
 writeFileSync(
   new URL("../docs/openapi.json", import.meta.url),
-  JSON.stringify(json, null, 2) + "\n",
+  await format(JSON.stringify(json), { parser: "json" }),
 );

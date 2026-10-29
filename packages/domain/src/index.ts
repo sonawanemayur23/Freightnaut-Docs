@@ -226,3 +226,24 @@ export function renderDocument(
    .join("")}
  <h2>Declaration</h2><p>${e(settings.declaration)}</p><footer>${e(settings.brandName)} · Draft · Not an issued document</footer></body></html>`;
 }
+
+export interface ShipmentSummary {
+  id: string;
+  reference: string;
+  consignee: string;
+  version: number;
+  updated_at: string;
+  originCountry: string;
+  destinationCountry: string;
+  currency: string;
+  value: string;
+  itemCount: number;
+  blockerCount: number;
+}
+export interface ShipmentList {
+  shipments: ShipmentSummary[];
+  nextCursor: string | null;
+  matched: number;
+  total: number;
+  updatedRecent: number;
+}

@@ -55,6 +55,9 @@ export function registerAuth(
         "INSERT INTO login_transactions(token_hash,provider_id,state,nonce,verifier) VALUES($1,$2,$3,$4,$5)",
         [tokenHash(token), request.params.providerId, state, nonce, verifier],
       );
+      const intent = z
+        .object({ intent: z.enum(["login", "register"]).default("login") })
+        .parse(request.query).intent;
       const url = oidc.buildAuthorizationUrl(client, {
         redirect_uri: config.PUBLIC_ORIGIN + "/api/auth/callback",
         scope: "openid profile email",
@@ -64,6 +67,18 @@ export function registerAuth(
         nonce,
         prompt: "login",
       });
+      if (intent === "register") {
+        url.searchParams.set("screen_hint", "signup");
+        const issuer = new URL(
+          providers.definition(request.params.providerId)!.issuer,
+        );
+        if (
+          config.NODE_ENV === "development" &&
+          ["localhost", "127.0.0.1"].includes(issuer.hostname) &&
+          issuer.pathname.startsWith("/realms/")
+        )
+          url.pathname = url.pathname.replace(/\/auth$/, "/registrations");
+      }
       return reply
         .setCookie(names.login, token, { ...options, maxAge: 600 })
         .redirect(url.href);

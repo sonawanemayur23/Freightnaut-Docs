@@ -5,6 +5,8 @@ import {
   shipmentSchema,
   renderDocument,
   validateShipment,
+  totalAmount,
+  createBlankShipment,
 } from "@freightnaut/domain";
 import { transaction } from "../db.js";
 import { authorize, settingsFor, uuid } from "../tenancy/service.js";
@@ -27,19 +29,90 @@ export function registerShipments(
         actor = request.actor!;
       const query = z
         .object({
-          limit: z.coerce.number().int().min(1).max(100).default(50),
+          limit: z.coerce.number().int().min(1).max(100).default(25),
+          q: z.string().trim().max(200).default(""),
+          recent: z.enum(["true", "false"]).default("false"),
+          cursor: z.string().max(512).optional(),
           before: z.iso.datetime().optional(),
         })
         .parse(request.query);
+      let cursor: { at: string; id: string } | null = null;
+      if (query.cursor) {
+        try {
+          cursor = z
+            .object({ at: z.iso.datetime({ offset: true }), id: z.uuid() })
+            .parse(
+              JSON.parse(
+                Buffer.from(query.cursor, "base64url").toString("utf8"),
+              ),
+            );
+        } catch {
+          assert(
+            false,
+            400,
+            "The shipment page expired. Return to the first page.",
+          );
+        }
+      }
       return transaction(pool, actor.id, async (db) => {
         await authorize(db, actor, tenantId, "shipment.read");
+        const settings = (await settingsFor(db, tenantId)).values;
+        const search = "%" + query.q.replace(/[\\%_]/g, "\\$&") + "%";
+        const counts = (
+          await db.query(
+            `SELECT count(*)::int AS total,count(*) FILTER(WHERE updated_at>=now()-interval '7 days')::int AS updated_recent,
+ count(*) FILTER(WHERE (data->>'id' ILIKE $2 OR data->'consignee'->>'name' ILIKE $2) AND (NOT $3 OR updated_at>=now()-interval '7 days'))::int AS matched FROM shipments WHERE tenant_id=$1`,
+            [tenantId, search, query.recent === "true"],
+          )
+        ).rows[0];
+        const result = await db.query(
+          `SELECT id,data,version,updated_at,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_time FROM shipments WHERE tenant_id=$1
+ AND (data->>'id' ILIKE $2 OR data->'consignee'->>'name' ILIKE $2)
+ AND (NOT $3 OR updated_at>=now()-interval '7 days')
+ AND ($4::timestamptz IS NULL OR (updated_at,id)<($4::timestamptz,$5::uuid))
+ AND ($6::timestamptz IS NULL OR updated_at<$6::timestamptz)
+ ORDER BY updated_at DESC,id DESC LIMIT $7`,
+          [
+            tenantId,
+            search,
+            query.recent === "true",
+            cursor?.at ?? null,
+            cursor?.id ?? null,
+            query.before ?? null,
+            query.limit + 1,
+          ],
+        );
+        const hasMore = result.rows.length > query.limit,
+          visible = result.rows.slice(0, query.limit),
+          last = visible.at(-1);
         return {
-          shipments: (
-            await db.query(
-              `SELECT id,data->>'id' AS reference,data->'consignee'->>'name' AS consignee,version,updated_at FROM shipments WHERE tenant_id=$1 AND ($2::timestamptz IS NULL OR updated_at<$2) ORDER BY updated_at DESC,id DESC LIMIT $3`,
-              [tenantId, query.before ?? null, query.limit],
-            )
-          ).rows,
+          total: counts.total,
+          updatedRecent: counts.updated_recent,
+          matched: counts.matched,
+          nextCursor:
+            hasMore && last
+              ? Buffer.from(
+                  JSON.stringify({ at: last.cursor_time, id: last.id }),
+                ).toString("base64url")
+              : null,
+          shipments: visible.map((row) => {
+            const data = shipmentSchema.parse(row.data);
+            return {
+              id: row.id,
+              reference: data.id,
+              consignee: data.consignee.name,
+              version: row.version,
+              updated_at: row.updated_at,
+              originCountry: data.originCountry,
+              destinationCountry: data.destinationCountry,
+              currency: data.currency,
+              value: totalAmount(data),
+              itemCount: data.items.length,
+              blockerCount: validateShipment(data, settings).filter(
+                (issue) => issue.severity === "blocker",
+              ).length,
+            };
+          }),
         };
       });
     },
@@ -74,6 +147,46 @@ export function registerShipments(
           result.rows[0].id,
         );
         return created(reply, result.rows[0]);
+      });
+    },
+  );
+  app.post<{ Params: { tenantId: string; shipmentId: string } }>(
+    "/api/tenants/:tenantId/shipments/:shipmentId/copy",
+    async (request, reply) => {
+      const tenantId = uuid(request.params.tenantId),
+        id = uuid(request.params.shipmentId),
+        actor = request.actor!;
+      return transaction(pool, actor.id, async (db) => {
+        await authorize(db, actor, tenantId, "shipment.write");
+        await authorize(db, actor, tenantId, "shipment.read", id);
+        const original = (
+          await db.query(
+            "SELECT data FROM shipments WHERE id=$1 AND tenant_id=$2",
+            [id, tenantId],
+          )
+        ).rows[0];
+        assert(original, 404, "Shipment not found.");
+        const settings = (await settingsFor(db, tenantId)).values,
+          source = shipmentSchema.parse(original.data);
+        const data = {
+          ...source,
+          id: "",
+          date: createBlankShipment(settings).date,
+          items: source.items.map((item) => ({
+            ...item,
+            id: crypto.randomUUID(),
+          })),
+        };
+        const row = (
+          await db.query(
+            "INSERT INTO shipments(tenant_id,data,created_by,updated_by) VALUES($1,$2,$3,$3) RETURNING id,version,data,updated_at",
+            [tenantId, JSON.stringify(data), actor.id],
+          )
+        ).rows[0];
+        await audit(db, actor.id, tenantId, "shipment.copied", row.id, {
+          sourceId: id,
+        });
+        return created(reply, row);
       });
     },
   );

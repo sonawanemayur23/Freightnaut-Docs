@@ -25,6 +25,8 @@ const providers = [
 await mkdir(".local/keycloak", { recursive: true });
 const realm = {
   realm: "freightnaut",
+  loginTheme: "freightnaut",
+  displayName: "Freightnaut Docs",
   enabled: true,
   registrationAllowed: true,
   registrationEmailAsUsername: true,
