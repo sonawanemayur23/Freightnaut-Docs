@@ -230,6 +230,9 @@ export function ShipmentPage({
             api={api}
             canWrite={canWrite}
             canDownload={canDownload}
+            canNumber={
+              !!tenant?.permissions.includes("document.number.reserve")
+            }
             onBack={() => {
               if (shared) return;
               loaded.current = null;

@@ -30,6 +30,7 @@ const permissionNames: Record<Permission, string> = {
   "shipment.read": "View shipments",
   "shipment.write": "Create and edit shipments",
   "document.download": "Download draft documents",
+  "document.number.reserve": "Reserve and void document numbers",
   "tenant.settings.write": "Change workspace settings",
   "tenant.members.manage": "Manage people and invitations",
   "tenant.roles.manage": "Create and edit custom roles",

@@ -95,3 +95,7 @@ The compiled API serves the web bundle from `apps/web/dist`. A TLS reverse proxy
 ## Private PDF storage
 
 Apply `npm run db:migrate`, then run `npm run storage:setup-local` for the local S3 service. Restart API and worker to load the updated environment. New PDFs then use private object storage; existing Postgres files remain downloadable. Configure a private AWS bucket and workload IAM for production, with `DOCUMENT_STORAGE=s3`, `S3_BUCKET` and `S3_REGION`. The optional custom endpoint must use HTTPS outside loopback development. See the rollout/rollback sequence and storage retention limits in [docs/DOCUMENTS.md](docs/DOCUMENTS.md). No AWS resources are created by local setup.
+
+## Document numbering
+
+Account administrators can open Document numbering to configure patterns, branches and reset periods. Authorized users reserve or void a number from a completed shipment. Draft previews and downloads never allocate numbers automatically; reservations do not issue documents. Existing shipment references and PDFs stay unchanged. See [docs/NUMBERING.md](docs/NUMBERING.md) for permissions, counter semantics and rollout limits.

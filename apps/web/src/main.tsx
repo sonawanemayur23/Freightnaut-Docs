@@ -25,6 +25,7 @@ import type { SessionContext, SettingsView } from "@freightnaut/domain";
 import { defaultSettings } from "@freightnaut/domain";
 import { createApi } from "./api";
 import { ShipmentPage } from "./ShipmentPage";
+import { NumberingPage } from "./NumberingPage";
 import { SettingsPage, accentText } from "./SettingsPage";
 import { TeamPage } from "./TeamPage";
 import { AccountsPage, AuditPage, PlatformPage } from "./AdminPages";
@@ -296,6 +297,16 @@ function App() {
       group: "Manage",
     },
     {
+      id: "numbering",
+      name: "Document numbering",
+      icon: Settings,
+      show:
+        tenant?.kind === "account" &&
+        (tenant.permissions.includes("tenant.settings.write") ||
+          tenant.permissions.includes("document.number.reserve")),
+      group: "Manage",
+    },
+    {
       id: "audit",
       name: "Activity",
       icon: History,
@@ -534,6 +545,14 @@ function App() {
                 initialSection={settingsSection}
                 onSectionChange={setSettingsSection}
                 onSaved={(value) => setSettings(value)}
+              />
+            )}
+            {current === "numbering" && tenant && settings && (
+              <NumberingPage
+                key={tenant.id}
+                tenant={tenant}
+                settings={settings.values}
+                api={api}
               />
             )}
             {current === "team" && tenant && (

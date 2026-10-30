@@ -16,9 +16,13 @@ A separate BullMQ worker consumes a durable Postgres outbox. Draft requests save
 
 S3-compatible private writes, conditional creation, bounded and hash-verified reads, retained object version IDs, and authorization/session rechecks before delivery. Existing Postgres bytes are preserved. Local SeaweedFS runs on loopback; a private versioned AWS bucket/IAM template is provided for later deployment. No raw object URLs are exposed. Orphan reconciliation and storage backup/retention operations remain release work.
 
-## Next: numbering and issuance
+## Implemented: configurable number reservations
 
-Add transactional document numbering, amendment reasons and retained originals, rule/template publishing and a reviewed live-issuance policy. A failed render cannot reuse an allocated number or report a successful issuance. Current background jobs generate drafts only.
+Account-owned series, branches, configurable resets and timezone-aware periods, transactional counters and idempotency. Permissions and MFA guard reservations and voids; retained history includes void reasons and configuration snapshots. Prepared drafts capture a reservation without becoming issued documents. Existing references and files are preserved.
+
+## Next: approvals and issuance
+
+Add approval policy and controlled issue transitions, amendment reasons and retained originals, rule/template publishing and a reviewed live-issuance policy. A failed render cannot reuse an allocated number or report a successful issuance. Current background jobs generate drafts only.
 
 ## Then: domain-validated rules and customization
 

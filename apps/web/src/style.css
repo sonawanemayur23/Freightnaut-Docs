@@ -3926,3 +3926,257 @@ fieldset {
     margin-top: 5px;
   }
 }
+
+.numbering-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.5fr);
+  gap: 24px;
+  align-items: start;
+}
+.series-list {
+  display: grid;
+  gap: 16px;
+}
+.series-list article,
+.series-editor,
+.series-guide,
+.numbering-empty,
+.number-reservation {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+}
+.series-list article {
+  padding: 22px;
+}
+.series-list article.selected {
+  border-color: var(--focus);
+}
+.series-list h2 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+.series-next {
+  padding-top: 17px;
+}
+.series-next small {
+  color: var(--muted);
+  display: block;
+  margin-bottom: 6px;
+}
+.series-next code {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.series-list-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  color: var(--muted);
+}
+.series-editor > header {
+  padding: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.series-editor h2,
+.series-guide h2,
+.numbering-empty h2 {
+  font-size: 20px;
+}
+.series-editor p,
+.series-guide p,
+.numbering-empty p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-top: 9px;
+}
+.series-fields {
+  padding: 24px;
+  display: grid;
+  gap: 22px;
+}
+.series-fields .field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.series-editor > footer {
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  gap: 12px;
+}
+.pattern-input,
+code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.pattern-tokens {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: -10px;
+}
+.pattern-tokens button {
+  background: #edf2f8;
+  color: #315c85;
+  font-size: 12px;
+  border-radius: 5px;
+  padding: 6px 8px;
+}
+.number-example {
+  padding: 20px;
+  background: #edf2f8;
+  border-radius: 9px;
+}
+.number-example small {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.number-example code {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.series-branches {
+  display: grid;
+  gap: 15px;
+}
+.branch-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) 30px;
+  align-items: end;
+  gap: 12px;
+}
+.branch-row label {
+  font-size: 12px;
+}
+.series-guide,
+.numbering-empty {
+  padding: 30px;
+  display: grid;
+  gap: 15px;
+}
+.series-guide > svg,
+.numbering-empty > svg {
+  color: var(--muted);
+}
+.number-reservation {
+  padding: 22px 24px;
+  margin-top: 26px;
+}
+.number-reservation > header,
+.number-reservation > header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.number-reservation > header {
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+.number-reservation header span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.number-reservation .error {
+  margin-top: 15px;
+}
+.reserved-number {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.reserved-number code {
+  font-size: 21px;
+  overflow-wrap: anywhere;
+}
+.number-reservation .text-button {
+  margin-top: 13px;
+}
+.reservation-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 18px;
+}
+.reservation-controls label {
+  min-width: 200px;
+  flex: 1;
+}
+.reservation-controls > small:last-child {
+  flex-basis: 100%;
+  color: var(--muted);
+}
+.void-form {
+  max-width: 650px;
+  display: grid;
+  gap: 15px;
+  margin-top: 20px;
+}
+.void-form > div {
+  display: flex;
+  gap: 12px;
+}
+.number-history {
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 17px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.number-history summary {
+  cursor: pointer;
+}
+.number-history > div {
+  padding-top: 15px;
+}
+.number-history code {
+  color: var(--ink);
+}
+.number-history p {
+  margin-top: 6px;
+}
+@media (max-width: 1050px) {
+  .numbering-layout {
+    grid-template-columns: 1fr;
+  }
+  .series-list {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .series-fields .field-grid {
+    grid-template-columns: 1fr;
+  }
+  .series-fields,
+  .series-editor > header,
+  .series-editor > footer,
+  .number-reservation {
+    padding: 20px;
+  }
+  .branch-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 25px;
+    gap: 8px;
+  }
+  .number-reservation > header > div {
+    flex-wrap: wrap;
+  }
+  .number-reservation header span {
+    flex-basis: 100%;
+    margin-left: 27px;
+  }
+  .reservation-controls label {
+    min-width: 0;
+    width: 100%;
+    flex-basis: 100%;
+  }
+  .reservation-controls > .primary {
+    width: 100%;
+  }
+}

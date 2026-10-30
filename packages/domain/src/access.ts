@@ -8,6 +8,7 @@ export const permissions = [
   "shipment.read",
   "shipment.write",
   "document.download",
+  "document.number.reserve",
 ] as const;
 export type Permission = (typeof permissions)[number];
 export type TenantKind = "partner" | "account";
@@ -28,6 +29,7 @@ export const permissionCeilings: Record<TenantKind, readonly Permission[]> = {
     "shipment.read",
     "shipment.write",
     "document.download",
+    "document.number.reserve",
   ],
 };
 // Persona templates initialize editable roles. Permissions, not persona names, authorize requests.
@@ -85,7 +87,10 @@ export function validateRolePermissions(
     granted.every(
       (p) => permissionCeilings[kind].includes(p) && actor.includes(p),
     ) &&
-    (!granted.includes("shipment.write") || granted.includes("shipment.read"))
+    (!granted.includes("shipment.write") ||
+      granted.includes("shipment.read")) &&
+    (!granted.includes("document.number.reserve") ||
+      (granted.includes("shipment.read") && granted.includes("shipment.write")))
   );
 }
 export interface TenantAccess {

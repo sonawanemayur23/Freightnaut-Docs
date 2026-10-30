@@ -7,6 +7,7 @@ import {
 } from "./settings.js";
 export * from "./settings.js";
 export * from "./access.js";
+export * from "./numbering.js";
 export const partySchema = z.object({
   name: z.string().max(300),
   address: z.string().max(1500),
@@ -207,12 +208,13 @@ export function renderDocument(
   s: Shipment,
   type: DocumentType,
   settings: WorkspaceSettings = defaultSettings,
+  reservedNumber?: string,
 ): string {
   const e = escape;
   const invoice = type === "invoice";
   return `<!doctype html><html lang="${e(settings.locale)}"><head><meta charset="utf-8"><style>
  @page{size:A4;margin:16mm}@media screen{body{width:210mm;min-height:297mm;padding:16mm}}*{box-sizing:border-box}body{margin:0;color:${e(settings.primaryColor)};font:11px Arial,sans-serif;line-height:1.5}header{display:flex;justify-content:space-between;border-bottom:2px solid ${e(settings.primaryColor)};padding-bottom:20px}header>div:first-child{max-width:55%}header>div:last-child{max-width:44%}h1{font-size:21px;margin:0}h2{font-size:12px;margin:0 0 5px}p{margin:2px 0}.muted{color:#64748b}.arabic{font-family:Arial,sans-serif;direction:rtl}.parties{display:grid;grid-template-columns:1fr 1fr;border:1px solid #d5dce6;margin:20px 0}.box{padding:12px;overflow-wrap:anywhere}.box+.box{border-left:1px solid #d5dce6}table{border-collapse:collapse;width:100%;margin:18px 0;table-layout:fixed}thead{display:table-header-group}th{background:${e(settings.primaryColor)};color:white;text-align:left;padding:8px;font-size:10px}td{padding:10px 8px;border-bottom:1px solid #d5dce6;overflow-wrap:anywhere}tr{break-inside:avoid}.number{text-align:right}.total{text-align:right;font-weight:bold;background:#f1f4f8;padding:12px}.summary{display:flex;justify-content:space-between;border:1px solid #d5dce6;padding:12px;margin:24px 0}.draft{position:fixed;top:40%;left:12%;font-size:100px;color:rgba(10,35,69,.045);transform:rotate(-35deg);z-index:-1}footer{margin-top:30px;border-top:1px solid #d5dce6;padding-top:10px;color:#64748b;font-size:9px}</style></head><body>
- <div class="draft">DRAFT</div><header><div><h2>${e(s.exporter.name)}</h2><p>${e(s.exporter.address)}</p><p class="muted">Tax ID ${e(s.exporter.taxId)}</p></div><div style="text-align:right"><h1>${e(settings.documentTitles[type])}</h1><h2 class="arabic" lang="ar">${e(settings.secondaryTitles[type])}</h2><p>DRAFT</p></div></header>
+ <div class="draft">DRAFT</div><header><div><h2>${e(s.exporter.name)}</h2><p>${e(s.exporter.address)}</p><p class="muted">Tax ID ${e(s.exporter.taxId)}</p></div><div style="text-align:right"><h1>${e(settings.documentTitles[type])}</h1><h2 class="arabic" lang="ar">${e(settings.secondaryTitles[type])}</h2><p>DRAFT</p>${reservedNumber ? `<p>Reserved document no: <b>${e(reservedNumber)}</b></p><p>Not issued</p>` : ""}</div></header>
  <section class="parties"><div class="box"><p class="muted">BUYER / CONSIGNEE</p><h2>${e(s.consignee.name)}</h2><p>${e(s.consignee.address)}</p><p>Tax ID ${e(s.consignee.taxId) || "—"}</p></div><div class="box"><p>Shipment reference: <b>${e(s.id)}</b></p><p>Date: ${e(s.date)}</p><p>Buyer PO: ${e(s.buyerPo) || "—"}</p><p>Terms: ${e(s.incoterm)} ${e(s.portOfDischarge)}</p><p>Loading: ${e(s.portOfLoading)}</p></div></section>
  <table><thead><tr><th style="width:6%">#</th><th style="width:${invoice ? "36" : "50"}%">Description</th><th style="width:16%">HS code</th><th>Qty</th><th>Unit</th>${invoice ? `<th>Price</th><th style="width:17%">Amount ${e(s.currency)}</th>` : ""}</tr></thead><tbody>${s.items.map((i, index) => `<tr><td>${index + 1}</td><td>${e(i.description)}</td><td>${e(i.hsCode)}</td><td class="number">${e(i.quantity)}</td><td>${e(i.unit)}</td>${invoice ? `<td class="number">${e(formatDecimal(i.unitPrice, settings.locale, Math.max(new Decimal(i.unitPrice).decimalPlaces(), currencyDigits(s.currency))))}</td><td class="number">${e(money(lineAmount(i, s.currency), settings.locale, s.currency))}</td>` : ""}</tr>`).join("")}</tbody></table>
  ${invoice ? `<div class="total">Total (${e(s.currency)}) &nbsp; ${e(money(totalAmount(s), settings.locale, s.currency))}</div>` : ""}

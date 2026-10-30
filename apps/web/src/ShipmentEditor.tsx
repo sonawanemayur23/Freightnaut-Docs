@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigationGuard } from "./navigation";
 import { countryOptions } from "./countries";
+import { NumberReservationPanel } from "./NumberReservationPanel";
 import { DocumentJobs, type DocumentJob } from "./DocumentJobs";
 import { CustomFields } from "./CustomFields";
 import {
@@ -50,7 +51,9 @@ function DocumentPreview({
   shipment,
   type,
   settings,
+  reservedNumber,
 }: {
+  reservedNumber?: string;
   shipment: Shipment;
   type: DocumentType;
   settings: WorkspaceSettings;
@@ -79,10 +82,12 @@ function DocumentPreview({
             : "Packing list preview"
         }
         sandbox=""
-        srcDoc={renderDocument(shipment, type, settings).replace(
-          "</head>",
-          `<style>html{zoom:${scale}}</style></head>`,
-        )}
+        srcDoc={renderDocument(
+          shipment,
+          type,
+          settings,
+          reservedNumber,
+        ).replace("</head>", `<style>html{zoom:${scale}}</style></head>`)}
         style={{ width: "100%", height: 1123 * scale }}
       />
     </div>
@@ -96,6 +101,7 @@ export function ShipmentEditor({
   api,
   canWrite,
   canDownload,
+  canNumber = false,
   onBack,
 }: {
   initial: { id: string; data: Shipment; version: number };
@@ -104,8 +110,10 @@ export function ShipmentEditor({
   api: ApiClient;
   canWrite: boolean;
   canDownload: boolean;
+  canNumber?: boolean;
   onBack: () => void;
 }) {
+  const [reservedNumber, setReservedNumber] = useState<string | undefined>();
   const registerGuard = useNavigationGuard();
   const countries = useMemo(
     () => countryOptions(settings.locale),
@@ -804,7 +812,12 @@ export function ShipmentEditor({
             </button>
             <span>{settings.locale}</span>
           </div>
-          <DocumentPreview shipment={shipment} type={doc} settings={settings} />
+          <DocumentPreview
+            shipment={shipment}
+            type={doc}
+            settings={settings}
+            reservedNumber={reservedNumber}
+          />
           <div className="preview-caption">
             <span>A4 portrait</span>
             <span>Account template</span>
@@ -820,6 +833,18 @@ export function ShipmentEditor({
           </div>
         </aside>
       </div>
+      <NumberReservationPanel
+        tenantId={tenantId}
+        shipmentId={initial.id}
+        type={doc}
+        canReserve={canNumber}
+        api={api}
+        prepare={async () => {
+          await flush();
+          return version.current;
+        }}
+        onNumberChange={setReservedNumber}
+      />
       {canDownload && (
         <DocumentJobs
           path={path + "/document-jobs"}

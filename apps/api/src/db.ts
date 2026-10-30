@@ -42,6 +42,7 @@ export async function assertRuntimeRole(pool: Pool) {
     "002_invitation_identity_binding.sql",
     "003_document_jobs.sql",
     "004_private_document_storage.sql",
+    "005_document_numbering.sql",
   ];
   const migrations = await pool.query(
     "SELECT version FROM schema_migrations WHERE version=ANY($1)",

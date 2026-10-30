@@ -1,0 +1,19 @@
+# Document number reservations
+
+Number series belong to customer accounts. Nothing is seeded. An administrator configures document type, name, prefix, pattern, padding, initial sequence, branches and reset period. Tokens are `{prefix}`, `{branch}`, `{fy}`, `{yyyy}`, `{mm}` and exactly one `{seq}`. Resets can be never, calendar year, financial year with a configurable start month, or monthly. Periods use the server clock in the workspace time zone. Financial-year labels show start/end years: 26-27, or 26-26 for a January-to-December year.
+
+Patterns require the period tokens needed by their reset rule and a branch token when counters are separate. Shared branch counters run one sequence across branches. Estimates and draft preparation never advance counters. Starts at initializes only a new counter; it cannot rewind an existing one. Set it above numbers already used by your business before adopting a series. Existing shipment references are preserved and are not imported into the number registry.
+
+Account administrators receive `document.number.reserve`. Existing custom roles and partner roles are unchanged. Custom roles need shipment read/write alongside reservation permission; download permission is independent. Series changes require settings-write permission. Reservations and voids require the reservation capability, shipment access and configured administrative MFA. Production requires MFA; the local development exception remains.
+
+Reservation checks the shipment version and required data, serializes same-shipment and same-series operations, and commits the counter, immutable reservation and audit together. Requester-scoped idempotency keys return the original record for the same shipment/series/branch. A second click on an active reservation consumes nothing. There is one active reservation per shipment/document type. A unique account/document-type/number constraint protects against overlapping series; a collision rolls back without consuming a counter. Every reservation retains the series configuration and revision used.
+
+Voiding requires a reason. The terminal void record and number remain in history; counters cannot rewind, runtime users cannot delete records, and reserved values cannot be rewritten. Replacements get new numbers. Deactivating or editing a series affects future reservations; existing records and files stay available. Configuration revisions prevent lost updates.
+
+Saved draft requests capture the active reservation with shipment, settings and rendered HTML. Previews show the current reservation. Earlier files keep their original number after voiding; history labels it as the number at preparation. PDFs remain visibly DRAFT and Not issued. The compatibility synchronous PDF endpoint remains an unnumbered draft path.
+
+Live issuance, compliance approval, signatures, amendments and credit-note workflows are not implemented. A reservation is not an issued document. Numbering is account-owned rather than inherited from partner settings. API history returns the latest 100 reservation records per shipment, and accounts can configure 50 series; these limits do not delete retained database history.
+
+Deploy migration 005 with compatible API and web builds. It backfills the capability only on reserved account-administrator roles. Pause provisioning during rollout so accounts created by old binaries are not missed by the backfill. No shipments, existing PDFs, user role assignments or custom-role permissions are removed. Restart local API/worker and reload the browser to refresh permissions. Once reservations exist, retain the registry and compatible reader on rollback; never drop tables to reset numbering.
+
+Tests cover timezone/reset boundaries, token safeguards, concurrency, idempotency, roles and RLS, blocked counter rewinds, immutable values, void retention, revisions, pattern collisions, shared/separate branches, MFA and browser configuration/reservation/PDF downloads.

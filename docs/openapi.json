@@ -546,7 +546,7 @@
                     "maxLength": 100
                   },
                   "permissions": {
-                    "maxItems": 8,
+                    "maxItems": 9,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -558,7 +558,8 @@
                         "tenant.audit.read",
                         "shipment.read",
                         "shipment.write",
-                        "document.download"
+                        "document.download",
+                        "document.number.reserve"
                       ]
                     }
                   }
@@ -625,7 +626,7 @@
                     "maxLength": 100
                   },
                   "permissions": {
-                    "maxItems": 8,
+                    "maxItems": 9,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -637,7 +638,8 @@
                         "tenant.audit.read",
                         "shipment.read",
                         "shipment.write",
-                        "document.download"
+                        "document.download",
+                        "document.number.reserve"
                       ]
                     }
                   }
@@ -1710,6 +1712,478 @@
         }
       }
     },
+    "/api/tenants/{tenantId}/number-series": {
+      "get": {
+        "operationId": "numberSeries",
+        "summary": "List account series and non-consuming next-number estimates",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" },
+          "503": {
+            "description": "A required storage service is temporarily unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNumberSeries",
+        "summary": "Configure an account-owned number series; requires tenant.settings.write and configured MFA",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" },
+          "503": {
+            "description": "A required storage service is temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+                  "documentType": {
+                    "type": "string",
+                    "enum": ["invoice", "packing-list"]
+                  },
+                  "prefix": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,20}$"
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "padding": { "type": "integer", "minimum": 1, "maximum": 12 },
+                  "startsAt": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 999999999
+                  },
+                  "reset": {
+                    "type": "string",
+                    "enum": ["never", "calendar", "financial", "monthly"]
+                  },
+                  "financialYearStartMonth": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 12
+                  },
+                  "separateByBranch": { "type": "boolean" },
+                  "branches": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,11}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        }
+                      },
+                      "required": ["code", "name"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "active": { "type": "boolean" }
+                },
+                "required": [
+                  "name",
+                  "documentType",
+                  "prefix",
+                  "pattern",
+                  "padding",
+                  "startsAt",
+                  "reset",
+                  "financialYearStartMonth",
+                  "separateByBranch",
+                  "branches",
+                  "active"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/number-series/{seriesId}": {
+      "put": {
+        "operationId": "updateNumberSeries",
+        "summary": "Change future formatting with optimistic revision protection",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "seriesId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" },
+          "503": {
+            "description": "A required storage service is temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "config": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "documentType": {
+                        "type": "string",
+                        "enum": ["invoice", "packing-list"]
+                      },
+                      "prefix": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{1,20}$"
+                      },
+                      "pattern": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "padding": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 12
+                      },
+                      "startsAt": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999999999
+                      },
+                      "reset": {
+                        "type": "string",
+                        "enum": ["never", "calendar", "financial", "monthly"]
+                      },
+                      "financialYearStartMonth": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 12
+                      },
+                      "separateByBranch": { "type": "boolean" },
+                      "branches": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "pattern": "^[A-Z0-9][A-Z0-9_-]{0,11}$"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            }
+                          },
+                          "required": ["code", "name"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "active": { "type": "boolean" }
+                    },
+                    "required": [
+                      "name",
+                      "documentType",
+                      "prefix",
+                      "pattern",
+                      "padding",
+                      "startsAt",
+                      "reset",
+                      "financialYearStartMonth",
+                      "separateByBranch",
+                      "branches",
+                      "active"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["revision", "config"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}/number-reservations": {
+      "get": {
+        "operationId": "numberReservations",
+        "summary": "List latest 100 reservations; requires shipment.read",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" },
+          "503": {
+            "description": "A required storage service is temporarily unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "reserveDocumentNumber",
+        "summary": "Reserve a number; requires document.number.reserve, shipment read/write and configured MFA. Does not issue a document.",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" },
+          "503": {
+            "description": "A required storage service is temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "seriesRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "branch": { "type": "string", "maxLength": 12 },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "version",
+                  "seriesId",
+                  "seriesRevision",
+                  "branch",
+                  "idempotencyKey"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenants/{tenantId}/shipments/{shipmentId}/number-reservations/{reservationId}/void": {
+      "post": {
+        "operationId": "voidDocumentNumber",
+        "summary": "Permanently void a reservation with its reason retained; numbers are never reused",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Sign-in required" },
+          "403": {
+            "description": "Insufficient permission, MFA, origin or CSRF token"
+          },
+          "404": { "description": "Resource not found" },
+          "409": {
+            "description": "Revision conflict, duplicate record or last-administrator constraint"
+          },
+          "429": { "description": "Rate or rendering concurrency limit" },
+          "503": {
+            "description": "A required storage service is temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                },
+                "required": ["reason"],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tenants/{tenantId}/shipments/{shipmentId}/document-jobs": {
       "post": {
         "operationId": "prepareSavedDraft",
@@ -2231,6 +2705,62 @@
           "netKg",
           "grossKg",
           "items"
+        ],
+        "additionalProperties": false
+      },
+      "NumberSeries": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "documentType": {
+            "type": "string",
+            "enum": ["invoice", "packing-list"]
+          },
+          "prefix": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,20}$" },
+          "pattern": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "padding": { "type": "integer", "minimum": 1, "maximum": 12 },
+          "startsAt": { "type": "integer", "minimum": 1, "maximum": 999999999 },
+          "reset": {
+            "type": "string",
+            "enum": ["never", "calendar", "financial", "monthly"]
+          },
+          "financialYearStartMonth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "separateByBranch": { "type": "boolean" },
+          "branches": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z0-9][A-Z0-9_-]{0,11}$"
+                },
+                "name": { "type": "string", "minLength": 1, "maxLength": 80 }
+              },
+              "required": ["code", "name"],
+              "additionalProperties": false
+            }
+          },
+          "active": { "type": "boolean" }
+        },
+        "required": [
+          "name",
+          "documentType",
+          "prefix",
+          "pattern",
+          "padding",
+          "startsAt",
+          "reset",
+          "financialYearStartMonth",
+          "separateByBranch",
+          "branches",
+          "active"
         ],
         "additionalProperties": false
       },

@@ -12,7 +12,7 @@ import { DocumentStorage } from "./storage.js";
 import { audit } from "../audit.js";
 export const digest = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
-const summary = `id,document_type AS "documentType",shipment_version AS "shipmentVersion",status,attempts,error_code AS "errorCode",created_at AS "createdAt",completed_at AS "completedAt",snapshot_hash AS "snapshotHash"`;
+const summary = `id,document_type AS "documentType",shipment_version AS "shipmentVersion",status,attempts,error_code AS "errorCode",created_at AS "createdAt",completed_at AS "completedAt",snapshot_hash AS "snapshotHash",snapshot->'numberReservation'->>'number' AS "documentNumber"`;
 export function registerDocumentJobs(
   app: FastifyInstance,
   pool: Pool,
@@ -84,13 +84,26 @@ export function registerDocumentJobs(
         );
         const settings = await settingsFor(db, tenant),
           data = shipmentSchema.parse(row.data);
+        const numberReservation =
+          (
+            await db.query(
+              "SELECT id,number,series_revision AS revision,branch FROM number_reservations WHERE tenant_id=$1 AND shipment_id=$2 AND document_type=$3 AND status='reserved'",
+              [tenant, shipment, input.type],
+            )
+          ).rows[0] ?? null;
         const snapshot = {
           shipment: data,
+          numberReservation,
           settings: settings.values,
           settingsRevision: settings.revision,
-          renderer: "html-draft-v1",
+          renderer: "html-draft-v2-numbering",
         };
-        const html = renderDocument(data, input.type, settings.values);
+        const html = renderDocument(
+          data,
+          input.type,
+          settings.values,
+          numberReservation?.number,
+        );
         const job = (
           await db.query(
             `INSERT INTO document_jobs(tenant_id,shipment_id,requested_by,idempotency_key,document_type,shipment_version,snapshot,html,snapshot_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${summary}`,

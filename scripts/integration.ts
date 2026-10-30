@@ -60,6 +60,16 @@ if (migration.status !== 0)
   throw new Error("Test migration failed: " + migration.stderr);
 const owner = new Pool({ connectionString: ownerUrl.href }),
   pool = new Pool({ connectionString: runtimeUrl.href });
+const idleErrors: string[] = [];
+for (const [label, connection] of [
+  ["admin", admin],
+  ["owner", owner],
+  ["runtime", pool],
+] as const)
+  connection.on("error", (error: Error & { code?: string }) => {
+    idleErrors.push(label + ":" + error.code);
+    console.error("Idle database connection error", label, error.code);
+  });
 const issuerApp = Fastify({ logger: false });
 const { privateKey, publicKey } = await generateKeyPair("RS256");
 const publicJwk = {
@@ -1543,6 +1553,407 @@ try {
     "membership or session revocation during object retrieval prevents PDF delivery",
   );
 
+  const numberingConfig = {
+    name: "Export invoices",
+    documentType: "invoice",
+    prefix: "TEST",
+    pattern: "{prefix}/{branch}/{fy}/{seq}",
+    padding: 4,
+    startsAt: 149,
+    reset: "financial",
+    financialYearStartMonth: 4,
+    separateByBranch: true,
+    branches: [
+      { code: "HQ", name: "Head office" },
+      { code: "ALT", name: "Second branch" },
+    ],
+    active: true,
+  };
+  const seriesPath = base + "/number-series";
+  const numberSeries = await expectStatus(
+    await request(adminClient, "POST", seriesPath, numberingConfig),
+    201,
+  );
+  const clerk = await fixtureUser("number-clerk@example.test");
+  const clerkRole = await expectStatus(
+    await request(adminClient, "POST", base + "/roles", {
+      name: "Number reservations",
+      permissions: [
+        "shipment.read",
+        "shipment.write",
+        "document.number.reserve",
+      ],
+    }),
+    201,
+  );
+  await owner.query(
+    "INSERT INTO memberships(user_id,tenant_id,role_id) VALUES($1,$2,$3)",
+    [clerk.userId, account.id, clerkRole.id],
+  );
+  assert.equal(
+    (
+      await request(clerk, "PUT", seriesPath + "/" + numberSeries.id, {
+        revision: 1,
+        config: numberingConfig,
+      })
+    ).statusCode,
+    403,
+  );
+  const validNumberData = {
+    ...data,
+    custom: { inspection_ref: "NUMBERING-TEST" },
+  };
+  const numberShipments: { id: string }[] = [];
+  for (let i = 0; i < 14; i++)
+    numberShipments.push(
+      await expectStatus(
+        await request(adminClient, "POST", base + "/shipments", {
+          ...validNumberData,
+          id: "NUMBER-" + i,
+        }),
+        201,
+      ),
+    );
+  const allocationKeys = numberShipments.map(() => crypto.randomUUID());
+  const reserveInput = (index: number, branch = "HQ") => ({
+    version: 1,
+    seriesId: numberSeries.id,
+    seriesRevision: 1,
+    branch,
+    idempotencyKey: allocationKeys[index],
+  });
+  const reservePath = (index: number) =>
+    base + "/shipments/" + numberShipments[index].id + "/number-reservations";
+  const allocations = await Promise.all(
+    numberShipments
+      .slice(0, 10)
+      .map((_, index) =>
+        request(clerk, "POST", reservePath(index), reserveInput(index)),
+      ),
+  );
+  const allocated = [];
+  for (const response of allocations)
+    allocated.push(await expectStatus(response, 201));
+  assert.equal(new Set(allocated.map((row) => row.number)).size, 10);
+  assert.deepEqual(
+    allocated.map((row) => row.sequence).sort((a, b) => a - b),
+    Array.from({ length: 10 }, (_, i) => 149 + i),
+  );
+  const first = await expectStatus(
+    await request(clerk, "POST", reservePath(0), reserveInput(0)),
+    201,
+  );
+  assert.equal(first.id, allocated[0].id);
+  const doubleClick = await expectStatus(
+    await request(clerk, "POST", reservePath(0), {
+      ...reserveInput(0),
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    201,
+  );
+  assert.equal(doubleClick.id, first.id);
+  const beforeCounter = (
+    await owner.query(
+      "SELECT next_value FROM number_counters WHERE series_id=$1",
+      [numberSeries.id],
+    )
+  ).rows[0].next_value;
+  await request(clerk, "GET", seriesPath);
+  await request(clerk, "GET", seriesPath);
+  assert.equal(
+    (
+      await owner.query(
+        "SELECT next_value FROM number_counters WHERE series_id=$1",
+        [numberSeries.id],
+      )
+    ).rows[0].next_value,
+    beforeCounter,
+  );
+  assert.equal(
+    (await request(reviewer, "POST", reservePath(10), reserveInput(10)))
+      .statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(outsider, "POST", reservePath(10), reserveInput(10)))
+      .statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(operator, "POST", reservePath(10), reserveInput(10)))
+      .statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(developer, "POST", reservePath(10), reserveInput(10)))
+      .statusCode,
+    403,
+  );
+  assert.equal(
+    (
+      await request(clerk, "POST", reservePath(10), {
+        ...reserveInput(10),
+        version: 99,
+      })
+    ).statusCode,
+    409,
+  );
+  assert.equal(
+    (
+      await request(clerk, "POST", reservePath(10), {
+        ...reserveInput(10),
+        branch: "UNKNOWN",
+      })
+    ).statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await request(
+        clerk,
+        "POST",
+        base + "/shipments/" + docSource.id + "/number-reservations",
+        { ...reserveInput(10), version: 2 },
+      )
+    ).statusCode,
+    409,
+    "Required custom data must be present before reserving.",
+  );
+  assert.equal(
+    (
+      await transaction(pool, clerk.userId, (db) =>
+        db.query("UPDATE number_series SET revision=revision+1 WHERE id=$1", [
+          numberSeries.id,
+        ]),
+      )
+    ).rowCount,
+    0,
+  );
+  assert.equal(
+    (await pool.query("SELECT id FROM number_reservations")).rowCount,
+    0,
+  );
+  assert.equal(
+    (
+      await transaction(pool, outsider.userId, (db) =>
+        db.query("SELECT id FROM number_reservations"),
+      )
+    ).rowCount,
+    0,
+  );
+  await assert.rejects(
+    () =>
+      transaction(pool, clerk.userId, (db) =>
+        db.query("UPDATE number_counters SET next_value=1 WHERE series_id=$1", [
+          numberSeries.id,
+        ]),
+      ),
+    (error: unknown) => (error as { code: string }).code === "23514",
+  );
+  await assert.rejects(
+    () =>
+      transaction(pool, clerk.userId, (db) =>
+        db.query(
+          "UPDATE number_reservations SET number='rewritten' WHERE id=$1",
+          [first.id],
+        ),
+      ),
+    (error: unknown) => (error as { code: string }).code === "42501",
+  );
+  check(
+    "concurrent account-scoped reservations, idempotency, non-consuming previews and role/RLS boundaries",
+  );
+
+  const numberedJob = await expectStatus(
+    await request(
+      adminClient,
+      "POST",
+      base + "/shipments/" + numberShipments[0].id + "/document-jobs",
+      { version: 1, type: "invoice", idempotencyKey: crypto.randomUUID() },
+    ),
+    202,
+  );
+  const numberedSnapshot = (
+    await owner.query("SELECT html,snapshot FROM document_jobs WHERE id=$1", [
+      numberedJob.id,
+    ])
+  ).rows[0];
+  assert.equal(
+    numberedSnapshot.snapshot.numberReservation.number,
+    first.number,
+  );
+  assert(numberedSnapshot.html.includes(first.number));
+  assert(numberedSnapshot.html.includes("Not issued"));
+  assert(numberedSnapshot.html.includes("DRAFT"));
+  const voidUrl = reservePath(0) + "/" + first.id + "/void";
+  assert.equal(
+    (await request(reviewer, "POST", voidUrl, { reason: "Wrong branch" }))
+      .statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(clerk, "POST", voidUrl, { reason: "x" })).statusCode,
+    400,
+  );
+  await expectStatus(
+    await request(clerk, "POST", voidUrl, { reason: "Wrong branch selected" }),
+    200,
+  );
+  await expectStatus(
+    await request(clerk, "POST", voidUrl, { reason: "Wrong branch selected" }),
+    200,
+  );
+  assert.equal(
+    (await request(clerk, "POST", voidUrl, { reason: "Overwrite old reason" }))
+      .statusCode,
+    409,
+  );
+  assert.equal(
+    (
+      await expectStatus(
+        await request(clerk, "POST", reservePath(0), reserveInput(0)),
+        201,
+      )
+    ).status,
+    "voided",
+  );
+  const replacement = await expectStatus(
+    await request(clerk, "POST", reservePath(0), {
+      ...reserveInput(0),
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    201,
+  );
+  assert.equal(replacement.sequence, 159);
+  assert.notEqual(replacement.number, first.number);
+  assert.equal(
+    (
+      await owner.query("SELECT html FROM document_jobs WHERE id=$1", [
+        numberedJob.id,
+      ])
+    ).rows[0].html,
+    numberedSnapshot.html,
+  );
+  const updatedSeries = await expectStatus(
+    await request(adminClient, "PUT", seriesPath + "/" + numberSeries.id, {
+      revision: 1,
+      config: { ...numberingConfig, prefix: "NEW" },
+    }),
+    200,
+  );
+  assert.equal(updatedSeries.revision, 2);
+  assert.equal(
+    (
+      await request(adminClient, "PUT", seriesPath + "/" + numberSeries.id, {
+        revision: 1,
+        config: numberingConfig,
+      })
+    ).statusCode,
+    409,
+  );
+  assert.equal(
+    (await request(clerk, "POST", reservePath(10), reserveInput(10)))
+      .statusCode,
+    409,
+  );
+  const newPattern = await expectStatus(
+    await request(clerk, "POST", reservePath(10), {
+      ...reserveInput(10),
+      seriesRevision: 2,
+    }),
+    201,
+  );
+  assert.equal(newPattern.sequence, 160);
+  assert(newPattern.number.startsWith("NEW/"));
+  assert.equal(
+    (
+      await owner.query(
+        "SELECT config_snapshot FROM number_reservations WHERE id=$1",
+        [first.id],
+      )
+    ).rows[0].config_snapshot.prefix,
+    "TEST",
+  );
+  const overlap = await expectStatus(
+    await request(adminClient, "POST", seriesPath, {
+      ...numberingConfig,
+      name: "Overlapping series",
+    }),
+    201,
+  );
+  assert.equal(
+    (
+      await request(clerk, "POST", reservePath(11), {
+        ...reserveInput(11),
+        seriesId: overlap.id,
+      })
+    ).statusCode,
+    409,
+  );
+  assert.equal(
+    (
+      await owner.query("SELECT 1 FROM number_counters WHERE series_id=$1", [
+        overlap.id,
+      ])
+    ).rowCount,
+    0,
+  );
+  const separateBranch = await expectStatus(
+    await request(clerk, "POST", reservePath(13), {
+      ...reserveInput(13, "ALT"),
+      seriesRevision: 2,
+    }),
+    201,
+  );
+  assert.equal(separateBranch.sequence, 149);
+  await expectStatus(
+    await request(adminClient, "PUT", seriesPath + "/" + numberSeries.id, {
+      revision: 2,
+      config: { ...numberingConfig, prefix: "NEW", active: false },
+    }),
+    200,
+  );
+  assert.equal(
+    (
+      await request(clerk, "POST", reservePath(11), {
+        ...reserveInput(11),
+        seriesRevision: 3,
+      })
+    ).statusCode,
+    409,
+  );
+  const sharedSeries = await expectStatus(
+    await request(adminClient, "POST", seriesPath, {
+      ...numberingConfig,
+      name: "Shared branch counter",
+      prefix: "SHARED",
+      pattern: "{prefix}/{seq}",
+      reset: "never",
+      startsAt: 1,
+      separateByBranch: false,
+    }),
+    201,
+  );
+  const sharedOne = await expectStatus(
+    await request(clerk, "POST", reservePath(11), {
+      ...reserveInput(11),
+      seriesId: sharedSeries.id,
+    }),
+    201,
+  );
+  const sharedTwo = await expectStatus(
+    await request(clerk, "POST", reservePath(12), {
+      ...reserveInput(12, "ALT"),
+      seriesId: sharedSeries.id,
+    }),
+    201,
+  );
+  assert.equal(sharedOne.sequence, 1);
+  assert.equal(sharedTwo.sequence, 2);
+  check(
+    "voided numbers are retained, pattern edits preserve snapshots, collisions consume nothing and shared branch counters stay ordered",
+  );
+
   documentRunner.start();
   const background = await expectStatus(
     await request(adminClient, "POST", jobsPath, {
@@ -1616,6 +2027,17 @@ try {
       tokenHash(noMfa),
     ])
   ).rows[0].csrf_token;
+  const numberingMfa = await mfaApp.inject({
+    method: "POST",
+    url: seriesPath,
+    headers: {
+      cookie: "freightnaut_session=" + noMfa,
+      origin: config.PUBLIC_ORIGIN,
+      "x-csrf-token": csrf,
+    },
+    payload: numberingConfig,
+  });
+  assert.equal(numberingMfa.statusCode, 403);
   const mfaResponse = await mfaApp.inject({
     method: "POST",
     url: base + "/roles",
@@ -1680,6 +2102,60 @@ try {
       .getByRole("combobox", { name: "Active workspace" })
       .selectOption(account.id);
     await page
+      .getByRole("button", { name: "Document numbering", exact: true })
+      .click();
+    await page
+      .getByRole("heading", { name: "Document numbering", exact: true })
+      .waitFor();
+    await page.getByRole("button", { name: "New series", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "Series name", exact: true })
+      .fill("Browser invoice");
+    await page
+      .getByRole("textbox", { name: "Prefix", exact: false })
+      .fill("BROWSER");
+    await page
+      .getByRole("textbox", { name: "Branch code 1", exact: true })
+      .fill("HQ");
+    await page
+      .getByRole("textbox", { name: "Branch name 1", exact: true })
+      .fill("Head office");
+    await page
+      .getByRole("combobox", { name: "Reset period", exact: true })
+      .selectOption("financial");
+    await page
+      .getByRole("textbox", { name: "Number pattern", exact: true })
+      .fill("{prefix}/{branch}/{fy}/{seq}");
+    await page
+      .getByRole("combobox", { name: "Financial year starts", exact: true })
+      .selectOption("4");
+    await page.screenshot({
+      path: "../work/ui-refresh/numbering-editor.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await page.screenshot({
+      path: "../work/ui-refresh/numbering-editor-mobile.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    await page
+      .getByRole("button", { name: "Save series", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Edit Browser invoice", exact: true })
+      .waitFor();
+    await page.screenshot({
+      path: "../work/ui-refresh/numbering.png",
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Shipments", exact: true }).click();
+    await page
       .getByRole("button", { name: "New shipment", exact: true })
       .click();
     await page.getByRole("heading", { name: "Parties", exact: true }).waitFor();
@@ -1698,6 +2174,9 @@ try {
     await page
       .getByRole("textbox", { name: "Unit price line 1", exact: true })
       .fill("10.25");
+    await page
+      .getByRole("spinbutton", { name: "Total packages", exact: true })
+      .fill("1");
     await page
       .getByRole("button", { name: "Terms & transport", exact: false })
       .click();
@@ -1776,6 +2255,18 @@ try {
         .inputValue(),
       "Browser goods saved on navigation",
     );
+    const reservationPanel = page.getByRole("region", {
+      name: "Document number reservation",
+    });
+    await reservationPanel
+      .getByRole("combobox", { name: "Number series", exact: true })
+      .selectOption({ label: "Browser invoice" });
+    await reservationPanel
+      .getByRole("button", { name: "Reserve number", exact: true })
+      .click();
+    await reservationPanel.getByText(/^BROWSER\/HQ\//).waitFor();
+    await reservationPanel.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "../work/ui-refresh/reservation.png" });
     await page.setViewportSize({ width: 390, height: 844 });
     assert(
       await page.evaluate(
@@ -1952,6 +2443,22 @@ try {
   await issuerApp.close();
   await pool.end();
   await owner.end();
-  await admin.query(`DROP DATABASE "${database}" WITH (FORCE)`);
+  // pg-pool end() can resolve before the server has observed every socket close.
+  // Wait for the server-side disconnect rather than force-terminating an idle client.
+  const drainDeadline = Date.now() + 5000;
+  let connections = 1;
+  while (connections && Date.now() < drainDeadline) {
+    connections = (
+      await admin.query(
+        "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=$1",
+        [database],
+      )
+    ).rows[0].n;
+    if (connections) await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(connections, 0, "Test database connections did not drain.");
+  await admin.query(`DROP DATABASE "${database}"`);
   await admin.end();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual(idleErrors, []);
 }

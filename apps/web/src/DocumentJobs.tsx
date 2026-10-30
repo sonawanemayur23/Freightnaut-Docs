@@ -18,6 +18,7 @@ export interface DocumentJob {
   errorCode: string | null;
   createdAt: string;
   snapshotHash: string;
+  documentNumber?: string | null;
 }
 export function DocumentJobs({
   path,
@@ -172,7 +173,12 @@ export function DocumentJobs({
                   {job.documentType === "invoice"
                     ? "Commercial invoice"
                     : "Packing list"}{" "}
-                  <span>Shipment v{job.shipmentVersion}</span>
+                  <span>
+                    Shipment v{job.shipmentVersion}
+                    {job.documentNumber
+                      ? ` · Number at preparation: ${job.documentNumber}`
+                      : ""}
+                  </span>
                 </strong>
                 <small>
                   {new Intl.DateTimeFormat(locale, {

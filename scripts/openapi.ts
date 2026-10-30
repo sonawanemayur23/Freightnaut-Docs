@@ -7,6 +7,9 @@ import {
   settingsPatchSchema,
   roleInputSchema,
   settingKeys,
+  seriesSchema,
+  reserveNumberSchema,
+  voidNumberSchema,
 } from "@freightnaut/domain";
 const asJson = (schema: z.ZodType) => {
   const value = z.toJSONSchema(schema, { unrepresentable: "any" });
@@ -322,6 +325,51 @@ operation(
   { pdf: true },
 );
 operation(
+  "get",
+  t + "/number-series",
+  "numberSeries",
+  "List account series and non-consuming next-number estimates",
+);
+operation(
+  "post",
+  t + "/number-series",
+  "createNumberSeries",
+  "Configure an account-owned number series; requires tenant.settings.write and configured MFA",
+  seriesSchema,
+  { status: 201 },
+);
+operation(
+  "put",
+  t + "/number-series/{seriesId}",
+  "updateNumberSeries",
+  "Change future formatting with optimistic revision protection",
+  z.strictObject({
+    revision: z.number().int().positive(),
+    config: seriesSchema,
+  }),
+);
+operation(
+  "get",
+  s + "/number-reservations",
+  "numberReservations",
+  "List latest 100 reservations; requires shipment.read",
+);
+operation(
+  "post",
+  s + "/number-reservations",
+  "reserveDocumentNumber",
+  "Reserve a number; requires document.number.reserve, shipment read/write and configured MFA. Does not issue a document.",
+  reserveNumberSchema,
+  { status: 201 },
+);
+operation(
+  "post",
+  s + "/number-reservations/{reservationId}/void",
+  "voidDocumentNumber",
+  "Permanently void a reservation with its reason retained; numbers are never reused",
+  voidNumberSchema,
+);
+operation(
   "post",
   s + "/document-jobs",
   "prepareSavedDraft",
@@ -404,6 +452,7 @@ const json = {
     },
     schemas: {
       Shipment: asJson(shipmentSchema),
+      NumberSeries: asJson(seriesSchema),
       WorkspaceSettings: asJson(workspaceSettingsSchema),
     },
   },

@@ -68,6 +68,18 @@ try {
   await client.query(
     `GRANT SELECT,INSERT,UPDATE,DELETE ON document_outbox TO "${role}"`,
   );
+  await client.query(
+    `GRANT SELECT,INSERT ON number_series,number_counters,number_reservations TO "${role}"`,
+  );
+  await client.query(
+    `GRANT UPDATE(config,revision,changed_by,updated_at) ON number_series TO "${role}"`,
+  );
+  await client.query(
+    `GRANT UPDATE(next_value) ON number_counters TO "${role}"`,
+  );
+  await client.query(
+    `GRANT UPDATE(status,void_reason,voided_by,voided_at) ON number_reservations TO "${role}"`,
+  );
   await client.query(`GRANT SELECT ON schema_migrations TO "${role}"`);
   await client.query(
     "REVOKE ALL ON FUNCTION has_permission(uuid,text,uuid) FROM PUBLIC",
