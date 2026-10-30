@@ -40,6 +40,11 @@ export function NumberingPage({
     [draft, setDraft] = useState<NumberSeries | null>(null),
     [selected, setSelected] = useState<SeriesRecord | null>(null),
     [saving, setSaving] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (draft)
+      formRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+  }, [selected?.id, !!draft]);
   const baseline = useRef(""),
     dirtyRef = useRef(false);
   dirtyRef.current = !!draft && JSON.stringify(draft) !== baseline.current;
@@ -210,6 +215,7 @@ export function NumberingPage({
           </section>
           {draft && canEdit ? (
             <form
+              ref={formRef}
               className="series-editor"
               onSubmit={(event) => {
                 event.preventDefault();
