@@ -10,11 +10,15 @@ A consistent responsive workspace, self-hosted typography, branded local identit
 
 ## Implemented: background draft lifecycle
 
-A separate BullMQ worker consumes a durable Postgres outbox. Draft requests save version-checked shipment/settings/HTML snapshots and requester-scoped idempotency keys. Bounded retries and lease recovery retain failed status. Immutable saved PDF bytes and SHA-256 hashes remain private in Postgres. The UI shows history, statuses and re-downloads; current permissions are checked before processing, persistence and every download.
+A separate BullMQ worker consumes a durable Postgres outbox. Draft requests save version-checked shipment/settings/HTML snapshots and requester-scoped idempotency keys. Bounded retries and lease recovery retain failed status. Immutable file manifests and SHA-256 hashes remain in Postgres; new PDFs can be held in private object storage. The UI shows history, statuses and re-downloads; current permissions are checked before processing, persistence and every download.
 
-## Next: numbering, private object storage and issuance
+## Implemented: private PDF storage
 
-Move large artifacts to private object storage with authorized expiring downloads. Add transactional document numbering, amendment reasons and retained originals, rule/template publishing and a reviewed live-issuance policy. A failed render cannot reuse an allocated number or report a successful issuance. Current background jobs generate drafts only.
+S3-compatible private writes, conditional creation, bounded and hash-verified reads, retained object version IDs, and authorization/session rechecks before delivery. Existing Postgres bytes are preserved. Local SeaweedFS runs on loopback; a private versioned AWS bucket/IAM template is provided for later deployment. No raw object URLs are exposed. Orphan reconciliation and storage backup/retention operations remain release work.
+
+## Next: numbering and issuance
+
+Add transactional document numbering, amendment reasons and retained originals, rule/template publishing and a reviewed live-issuance policy. A failed render cannot reuse an allocated number or report a successful issuance. Current background jobs generate drafts only.
 
 ## Then: domain-validated rules and customization
 

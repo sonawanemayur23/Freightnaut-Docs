@@ -86,8 +86,12 @@ The compiled API serves the web bundle from `apps/web/dist`. A TLS reverse proxy
 - `apps/web/src`: sign-in, permission-aware navigation, shipment workflow and administration screens.
 - `packages/domain`: validated data/configuration, permission catalog, calculations, rendering and settings resolver.
 - `docs/openapi.json`: API contract generated from shared schemas with operation-level security requirements.
-- `compose.yaml`: local Postgres, Redis, Keycloak and mail testing. Redis transports BullMQ PDF jobs; Postgres retains the authoritative outbox, snapshots, state and saved files.
+- `compose.yaml`: local Postgres, Redis, Keycloak, mail testing and optional private object storage. Redis transports BullMQ PDF jobs; Postgres retains the authoritative outbox, snapshots, state and saved files.
 
 ## Background draft documents
 
 `npm run dev` starts API, web and the document worker. For an already running development session, start `npm run worker:dev` separately after applying migrations. A running API can accept requests while Redis or the worker is unavailable: the committed outbox retains them until dispatch resumes. Configure `REDIS_URL` with credentials; production requires `rediss://` and a Redis instance configured with persistence and no key eviction. Give deployments separate `PDF_QUEUE_NAME` values, and run the worker with the same restricted runtime database role, without migration credentials. See [docs/DOCUMENTS.md](docs/DOCUMENTS.md).
+
+## Private PDF storage
+
+Apply `npm run db:migrate`, then run `npm run storage:setup-local` for the local S3 service. Restart API and worker to load the updated environment. New PDFs then use private object storage; existing Postgres files remain downloadable. Configure a private AWS bucket and workload IAM for production, with `DOCUMENT_STORAGE=s3`, `S3_BUCKET` and `S3_REGION`. The optional custom endpoint must use HTTPS outside loopback development. See the rollout/rollback sequence and storage retention limits in [docs/DOCUMENTS.md](docs/DOCUMENTS.md). No AWS resources are created by local setup.

@@ -7,9 +7,11 @@ import type { AppConfig } from "../config.js";
 import { transaction } from "../db.js";
 import { audit } from "../audit.js";
 import { PdfRenderer } from "./renderer.js";
+import { DocumentStorage } from "./storage.js";
 import { digest } from "./jobs.js";
 type Delivery = { id: string; requester: string };
 export class DocumentRunner {
+  private storage: DocumentStorage;
   private queue: Queue;
   private worker: Worker;
   private producer: Redis;
@@ -24,6 +26,7 @@ export class DocumentRunner {
   ) {
     if (!config.REDIS_URL)
       throw new Error("REDIS_URL is required for the document worker");
+    this.storage = new DocumentStorage(config);
     this.producer = new Redis(config.REDIS_URL, {
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
@@ -146,9 +149,23 @@ export class DocumentRunner {
           )
         ).rows[0].ok;
         if (!allowed) throw new Error("Access revoked");
+        const file = await this.storage.save(
+          job.tenant_id,
+          job.id,
+          token,
+          bytes,
+        );
         await db.query(
-          "INSERT INTO document_files(job_id,bytes,sha256) VALUES($1,$2,$3)",
-          [job.id, bytes, digest(bytes)],
+          "INSERT INTO document_files(job_id,bytes,sha256,object_key,object_bucket,object_version,byte_size) VALUES($1,$2,$3,$4,$5,$6,$7)",
+          [
+            job.id,
+            file.bytes,
+            file.sha256,
+            file.object_key,
+            file.object_bucket,
+            file.object_version,
+            file.byte_size,
+          ],
         );
         await db.query(
           "UPDATE document_jobs SET status='ready',completed_at=now(),lease_token=NULL,lease_until=NULL,error_code=NULL WHERE id=$1",
@@ -199,5 +216,6 @@ export class DocumentRunner {
     await this.queue.close();
     this.producer.disconnect();
     this.consumer.disconnect();
+    this.storage.close();
   }
 }

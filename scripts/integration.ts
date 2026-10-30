@@ -1,4 +1,11 @@
 import "dotenv/config";
+import {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import { DocumentStorage } from "../apps/api/src/documents/storage.js";
 import { Pool } from "pg";
 import Fastify from "fastify";
 import { generateKeyPair, exportJWK, SignJWT } from "jose";
@@ -169,6 +176,7 @@ const config = loadConfig({
   SERVE_WEB: "true",
   LOG_LEVEL: "silent",
   PDF_QUEUE_NAME: database,
+  DOCUMENT_STORAGE: "postgres",
   DATABASE_URL: runtimeUrl.href,
   OIDC_PROVIDERS: JSON.stringify([
     {
@@ -181,7 +189,24 @@ const config = loadConfig({
   ]),
 });
 const app = await buildApp(config, pool);
-const documentRunner = new DocumentRunner(pool, config, () => {});
+const documentRunner = new DocumentRunner(
+  pool,
+  { ...config, DOCUMENT_STORAGE: "s3" },
+  () => {},
+);
+const objectPrefixes = new Set<string>();
+const objectClient = new S3Client({
+  region: config.S3_REGION,
+  endpoint: config.S3_ENDPOINT,
+  forcePathStyle: true,
+  credentials: config.S3_ACCESS_KEY_ID
+    ? {
+        accessKeyId: config.S3_ACCESS_KEY_ID,
+        secretAccessKey: config.S3_SECRET_ACCESS_KEY!,
+      }
+    : undefined,
+  maxAttempts: 1,
+});
 let count = 0;
 const check = (name: string) => {
   count++;
@@ -1263,6 +1288,261 @@ try {
     202,
   );
   assert.equal(reviewerJob.status, "queued");
+  // Real local S3 writes use a test-owned tenant prefix; no existing object is touched.
+  if (
+    !config.S3_ENDPOINT ||
+    !config.S3_BUCKET ||
+    !["127.0.0.1", "localhost"].includes(new URL(config.S3_ENDPOINT).hostname)
+  )
+    throw new Error(
+      "Run npm run storage:setup-local before integration tests.",
+    );
+  objectPrefixes.add(`drafts/${account.id}/`);
+  const s3Config = { ...config, DOCUMENT_STORAGE: "s3" as const };
+  const s3Job = await expectStatus(
+    await request(adminClient, "POST", jobsPath, {
+      version: 2,
+      type: "invoice",
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    202,
+  );
+  const objectRunner = new DocumentRunner(
+    pool,
+    s3Config,
+    () => {},
+    async () => pdf.rawPayload,
+  );
+  try {
+    await objectRunner.process({ id: s3Job.id, requester: adminClient.userId });
+  } finally {
+    await objectRunner.close();
+  }
+  const manifest = (
+    await owner.query("SELECT * FROM document_files WHERE job_id=$1", [
+      s3Job.id,
+    ])
+  ).rows[0];
+  assert(manifest, "A successful object write must create a manifest.");
+  assert.equal(manifest.bytes, null);
+  assert.equal(manifest.object_bucket, config.S3_BUCKET);
+  assert.equal(manifest.byte_size, pdf.rawPayload.length);
+  const objectFile = await request(
+    adminClient,
+    "GET",
+    jobsPath + "/" + s3Job.id + "/file",
+  );
+  assert.equal(objectFile.statusCode, 200, objectFile.body);
+  assert.deepEqual(objectFile.rawPayload, pdf.rawPayload);
+  assert.equal(
+    (await request(adminClient, "GET", jobsPath + "/" + queued.id + "/file"))
+      .statusCode,
+    200,
+    "The expanded reader must still deliver existing Postgres files.",
+  );
+  const rawUrl =
+    config.S3_ENDPOINT + "/" + config.S3_BUCKET + "/" + manifest.object_key;
+  assert.equal(
+    (await fetch(rawUrl)).status,
+    403,
+    "Object bytes must not be available anonymously.",
+  );
+  assert.equal(
+    (await request(outsider, "GET", jobsPath + "/" + s3Job.id + "/file"))
+      .statusCode,
+    403,
+  );
+  assert.equal(
+    (await request(reviewer, "GET", jobsPath + "/" + s3Job.id + "/file"))
+      .statusCode,
+    200,
+  );
+  check(
+    "private S3 PDF storage, hash-verified authorized downloads and old Postgres file compatibility",
+  );
+
+  const store = new DocumentStorage(s3Config),
+    attempt = crypto.randomUUID(),
+    testJob = crypto.randomUUID();
+  try {
+    const [first, repeated] = await Promise.all([
+      store.save(account.id, testJob, attempt, pdf.rawPayload),
+      store.save(account.id, testJob, attempt, pdf.rawPayload),
+    ]);
+    assert.equal(first.object_key, repeated.object_key);
+    assert.deepEqual(await store.read(first), pdf.rawPayload);
+    await assert.rejects(
+      () =>
+        objectClient.send(
+          new PutObjectCommand({
+            Bucket: config.S3_BUCKET,
+            Key: first.object_key!,
+            Body: Buffer.from("%PDF-forbidden overwrite"),
+            IfNoneMatch: "*",
+          }),
+        ),
+      (error: unknown) =>
+        (error as { $metadata?: { httpStatusCode?: number } }).$metadata
+          ?.httpStatusCode === 412,
+    );
+    assert.deepEqual(await store.read(first), pdf.rawPayload);
+    const corrupted = Buffer.from(pdf.rawPayload);
+    corrupted[corrupted.length - 1] ^= 1;
+    await objectClient.send(
+      new PutObjectCommand({
+        Bucket: config.S3_BUCKET,
+        Key: manifest.object_key,
+        Body: corrupted,
+      }),
+    );
+    const tampered = await request(
+      adminClient,
+      "GET",
+      jobsPath + "/" + s3Job.id + "/file",
+    );
+    assert.equal(tampered.statusCode, 500);
+    assert(!tampered.body.startsWith("%PDF-"));
+    await objectClient.send(
+      new PutObjectCommand({
+        Bucket: config.S3_BUCKET,
+        Key: manifest.object_key,
+        Body: pdf.rawPayload,
+      }),
+    );
+    assert.equal(
+      (await request(adminClient, "GET", jobsPath + "/" + s3Job.id + "/file"))
+        .statusCode,
+      200,
+    );
+  } finally {
+    store.close();
+  }
+  check(
+    "conditional S3 writes resist overwrites, concurrent retry is idempotent and tampered bytes fail verification",
+  );
+
+  const unavailableStore = {
+    ...s3Config,
+    S3_ENDPOINT: "http://127.0.0.1:1",
+  };
+  const storageFailure = await expectStatus(
+    await request(adminClient, "POST", jobsPath, {
+      version: 2,
+      type: "packing-list",
+      idempotencyKey: crypto.randomUUID(),
+    }),
+    202,
+  );
+  const brokenStoreRunner = new DocumentRunner(
+    pool,
+    unavailableStore,
+    () => {},
+    async () => pdf.rawPayload,
+  );
+  try {
+    for (let attempt = 0; attempt < 3; attempt++)
+      await brokenStoreRunner.process({
+        id: storageFailure.id,
+        requester: adminClient.userId,
+      });
+  } finally {
+    await brokenStoreRunner.close();
+  }
+  assert.equal(
+    (
+      await owner.query("SELECT status FROM document_jobs WHERE id=$1", [
+        storageFailure.id,
+      ])
+    ).rows[0].status,
+    "failed",
+  );
+  assert.equal(
+    (
+      await owner.query("SELECT 1 FROM document_files WHERE job_id=$1", [
+        storageFailure.id,
+      ])
+    ).rowCount,
+    0,
+  );
+  const unavailableApp = await buildApp(
+    { ...config, S3_ENDPOINT: "http://127.0.0.1:1" },
+    pool,
+  );
+  try {
+    const headers = { cookie: "freightnaut_session=" + adminClient.token };
+    assert.equal(
+      (
+        await unavailableApp.inject({
+          url: jobsPath + "/" + s3Job.id + "/file",
+          headers,
+        })
+      ).statusCode,
+      503,
+    );
+    assert.equal(
+      (
+        await unavailableApp.inject({
+          url: jobsPath + "/" + queued.id + "/file",
+          headers,
+        })
+      ).statusCode,
+      200,
+    );
+  } finally {
+    await unavailableApp.close();
+  }
+  check(
+    "storage write failures never produce ready documents; unavailable object storage does not break legacy PDFs",
+  );
+
+  const readActor = await fixtureUser("object-read-revocation@example.test");
+  await member(readActor, account.id, "reviewer");
+  let revokeSession = false;
+  const controlledStorage = Fastify();
+  controlledStorage.get("/*", async (_request, reply) => {
+    if (revokeSession)
+      await owner.query("DELETE FROM sessions WHERE token_hash=$1", [
+        tokenHash(readActor.token),
+      ]);
+    else
+      await owner.query(
+        "UPDATE memberships SET status='revoked' WHERE user_id=$1",
+        [readActor.userId],
+      );
+    return reply
+      .header("Content-Length", pdf.rawPayload.length)
+      .type("application/pdf")
+      .send(pdf.rawPayload);
+  });
+  await controlledStorage.listen({ host: "127.0.0.1", port: 0 });
+  const guardedReadApp = await buildApp(
+    { ...config, S3_ENDPOINT: controlledStorage.listeningOrigin },
+    pool,
+  );
+  try {
+    const readUrl = jobsPath + "/" + s3Job.id + "/file",
+      headers = { cookie: "freightnaut_session=" + readActor.token };
+    assert.equal(
+      (await guardedReadApp.inject({ url: readUrl, headers })).statusCode,
+      403,
+    );
+    await owner.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1",
+      [readActor.userId],
+    );
+    revokeSession = true;
+    assert.equal(
+      (await guardedReadApp.inject({ url: readUrl, headers })).statusCode,
+      401,
+    );
+  } finally {
+    await guardedReadApp.close();
+    await controlledStorage.close();
+  }
+  check(
+    "membership or session revocation during object retrieval prevents PDF delivery",
+  );
+
   documentRunner.start();
   const background = await expectStatus(
     await request(adminClient, "POST", jobsPath, {
@@ -1313,6 +1593,15 @@ try {
     (await request(reviewer, "GET", jobsPath + "/" + reviewerJob.id + "/file"))
       .statusCode,
     200,
+  );
+  assert.equal(
+    (
+      await owner.query("SELECT bytes FROM document_files WHERE job_id=$1", [
+        background.id,
+      ])
+    ).rows[0].bytes,
+    null,
+    "The real renderer must save to object storage.",
   );
   check(
     "real Redis/BullMQ dispatch renders a persisted draft outside the API request",
@@ -1511,6 +1800,17 @@ try {
       .getByRole("region", { name: "Saved draft documents" })
       .getByText("Ready to download", { exact: false })
       .waitFor();
+    const browserArtifact = (
+      await owner.query(
+        "SELECT f.object_key,f.bytes FROM document_files f JOIN document_jobs j ON j.id=f.job_id WHERE j.shipment_id=$1 AND j.status='ready' ORDER BY j.created_at DESC LIMIT 1",
+        [new URL(page.url()).searchParams.get("shipment")],
+      )
+    ).rows[0];
+    assert(
+      browserArtifact?.object_key,
+      "Browser download must come from a saved S3-backed draft.",
+    );
+    assert.equal(browserArtifact.bytes, null);
     await page
       .getByRole("region", { name: "Saved draft documents" })
       .scrollIntoViewIfNeeded();
@@ -1552,7 +1852,7 @@ try {
     );
     assert.deepEqual(pageErrors, []);
     check(
-      "authenticated browser: create, edit, server reload, account switch, mobile layout and reviewer read-only state",
+      "authenticated browser: create, edit, reload, account switch, S3 draft download/history, mobile layout and reviewer restrictions",
     );
   } finally {
     await browser.close();
@@ -1621,6 +1921,28 @@ try {
   );
 } finally {
   await documentRunner.close();
+  for (const prefix of objectPrefixes) {
+    let continuation: string | undefined;
+    do {
+      const page = await objectClient.send(
+        new ListObjectsV2Command({
+          Bucket: config.S3_BUCKET,
+          Prefix: prefix,
+          ContinuationToken: continuation,
+        }),
+      );
+      for (const item of page.Contents ?? [])
+        if (item.Key?.startsWith(prefix))
+          await objectClient.send(
+            new DeleteObjectCommand({
+              Bucket: config.S3_BUCKET,
+              Key: item.Key,
+            }),
+          );
+      continuation = page.NextContinuationToken;
+    } while (continuation);
+  }
+  objectClient.destroy();
   const redis = new Redis(config.REDIS_URL!, { maxRetriesPerRequest: 1 });
   const queue = new Queue(config.PDF_QUEUE_NAME, { connection: redis });
   await queue.obliterate({ force: true });

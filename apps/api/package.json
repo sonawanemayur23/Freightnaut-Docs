@@ -7,11 +7,13 @@
     "dev": "cd ../.. && tsx watch apps/api/src/server.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1160.0",
     "@fastify/cookie": "^11.1.5",
     "@fastify/helmet": "^13.2.0",
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/static": "^10.1.8",
     "@freightnaut/domain": "*",
+    "@smithy/node-http-handler": "^4.14.0",
     "bullmq": "^5.81.5",
     "dotenv": "^18.0.9",
     "fastify": "^5.0.0",

@@ -26,7 +26,8 @@
     "identity:configure-local": "node --import tsx scripts/configure-local-identity.ts",
     "test:registration": "node --import tsx scripts/registration-smoke.ts",
     "worker": "node apps/api/dist/worker.mjs",
-    "worker:dev": "tsx watch apps/api/src/documents/worker.ts"
+    "worker:dev": "tsx watch apps/api/src/documents/worker.ts",
+    "storage:setup-local": "node --import tsx scripts/setup-storage-local.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -7,11 +7,19 @@ import { shipmentSchema, renderDocument } from "@freightnaut/domain";
 import { transaction } from "../db.js";
 import { authorize, settingsFor, uuid } from "../tenancy/service.js";
 import { assert } from "../errors.js";
+import type { AppConfig } from "../config.js";
+import { DocumentStorage } from "./storage.js";
 import { audit } from "../audit.js";
 export const digest = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
 const summary = `id,document_type AS "documentType",shipment_version AS "shipmentVersion",status,attempts,error_code AS "errorCode",created_at AS "createdAt",completed_at AS "completedAt",snapshot_hash AS "snapshotHash"`;
-export function registerDocumentJobs(app: FastifyInstance, pool: Pool) {
+export function registerDocumentJobs(
+  app: FastifyInstance,
+  pool: Pool,
+  config: AppConfig,
+) {
+  const storage = new DocumentStorage(config);
+  app.addHook("onClose", async () => storage.close());
   const root = "/api/tenants/:tenantId/shipments/:shipmentId/document-jobs";
   type Params = { tenantId: string; shipmentId: string; jobId: string };
   app.post<{ Params: Params }>(
@@ -147,30 +155,57 @@ export function registerDocumentJobs(app: FastifyInstance, pool: Pool) {
       );
       const row = (
         await db.query(
-          `SELECT j.document_type,j.shipment_version,j.status,f.bytes,f.sha256 FROM document_jobs j LEFT JOIN document_files f ON f.job_id=j.id WHERE j.id=$1 AND j.tenant_id=$2 AND j.shipment_id=$3`,
+          `SELECT j.document_type,j.shipment_version,j.status,f.bytes,f.sha256,f.object_key,f.object_bucket,f.object_version,f.byte_size FROM document_jobs j LEFT JOIN document_files f ON f.job_id=j.id WHERE j.id=$1 AND j.tenant_id=$2 AND j.shipment_id=$3`,
           [id, tenant, shipment],
         )
       ).rows[0];
       assert(row, 404, "Document not found.");
       assert(
-        row.status === "ready" && row.bytes,
+        row.status === "ready" && (row.bytes || row.object_key),
         409,
         "This document is not ready to download.",
       );
+      // Read outside the DB transaction so slow storage cannot occupy a DB connection.
+      return { ...row, tenant, shipment, id };
+    });
+    const bytes = await storage.read(result);
+    // Session revocation and permission changes during object retrieval must block delivery.
+    await transaction(pool, request.actor!.id, async (db) => {
+      await authorize(
+        db,
+        request.actor!,
+        result.tenant,
+        "shipment.read",
+        result.shipment,
+      );
+      await authorize(
+        db,
+        request.actor!,
+        result.tenant,
+        "document.download",
+        result.shipment,
+      );
       assert(
-        digest(row.bytes) === row.sha256,
-        500,
-        "The saved document could not be verified.",
+        (
+          await db.query(
+            "SELECT 1 FROM sessions WHERE token_hash=$1 AND expires_at>now() AND last_seen_at>now()-($2::integer*interval '1 second')",
+            [request.actor!.sessionHash, config.SESSION_IDLE_SECONDS],
+          )
+        ).rowCount,
+        401,
+        "Your session ended. Sign in again.",
       );
       await audit(
         db,
         request.actor!.id,
-        tenant,
+        result.tenant,
         "document.saved_draft_downloaded",
-        id,
-        { shipmentId: shipment, shipmentVersion: row.shipment_version },
+        result.id,
+        {
+          shipmentId: result.shipment,
+          shipmentVersion: result.shipment_version,
+        },
       );
-      return row;
     });
     return reply
       .type("application/pdf")
@@ -179,6 +214,6 @@ export function registerDocumentJobs(app: FastifyInstance, pool: Pool) {
         `attachment; filename="${result.document_type}-v${result.shipment_version}-draft.pdf"`,
       )
       .header("X-Document-SHA256", result.sha256)
-      .send(result.bytes);
+      .send(bytes);
   });
 }

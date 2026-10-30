@@ -40,6 +40,25 @@ describe("production configuration", () => {
         .REDIS_URL,
     ).toBe("rediss://redis.example.com");
   });
+  it("validates private object storage configuration without accepting insecure endpoints", () => {
+    expect(() => loadConfig({ ...base, DOCUMENT_STORAGE: "s3" })).toThrow();
+    expect(() =>
+      loadConfig({ ...base, S3_ENDPOINT: "http://objects.example.com" }),
+    ).toThrow();
+    expect(() =>
+      loadConfig({
+        ...base,
+        S3_ENDPOINT: "https://user:secret@objects.example.com",
+      }),
+    ).toThrow();
+    expect(() =>
+      loadConfig({ ...base, S3_ACCESS_KEY_ID: "incomplete" }),
+    ).toThrow();
+    expect(
+      loadConfig({ ...base, DOCUMENT_STORAGE: "s3", S3_BUCKET: "private-docs" })
+        .DOCUMENT_STORAGE,
+    ).toBe("s3");
+  });
   it("does not allow duplicate provider identifiers or path-based origins", () => {
     const provider = JSON.parse(base.OIDC_PROVIDERS)[0];
     expect(() =>

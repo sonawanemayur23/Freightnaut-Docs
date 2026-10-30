@@ -23,6 +23,9 @@ const errors = {
       "Revision conflict, duplicate record or last-administrator constraint",
   },
   "429": { description: "Rate or rendering concurrency limit" },
+  "503": {
+    description: "A required storage service is temporarily unavailable",
+  },
 };
 const paths: Record<string, Record<string, unknown>> = {};
 function operation(

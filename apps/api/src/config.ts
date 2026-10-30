@@ -35,6 +35,16 @@ const schema = z.object({
   REQUIRE_ADMIN_MFA: z.enum(["true", "false"]).default("true"),
   AUTH_RATE_LIMIT: z.coerce.number().int().min(5).max(500).default(30),
   INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(48),
+  DOCUMENT_STORAGE: z.enum(["postgres", "s3"]).default("postgres"),
+  S3_BUCKET: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+    .optional(),
+  S3_REGION: z.string().min(1).default("us-east-1"),
+  S3_ENDPOINT: z.url().optional(),
+  S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("false"),
+  S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+  S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   REDIS_URL: z.url().optional(),
   PDF_QUEUE_NAME: z
     .string()
@@ -49,6 +59,34 @@ const schema = z.object({
 });
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   const parsed = schema.parse(env);
+  if (parsed.DOCUMENT_STORAGE === "s3" && !parsed.S3_BUCKET)
+    throw new Error("S3_BUCKET is required for S3 document storage");
+  if (Boolean(parsed.S3_ACCESS_KEY_ID) !== Boolean(parsed.S3_SECRET_ACCESS_KEY))
+    throw new Error(
+      "Supply both S3 credentials or use the AWS workload identity chain",
+    );
+  if (parsed.S3_ENDPOINT) {
+    const endpoint = new URL(parsed.S3_ENDPOINT);
+    if (
+      endpoint.username ||
+      endpoint.password ||
+      endpoint.search ||
+      endpoint.hash ||
+      endpoint.pathname !== "/"
+    )
+      throw new Error("S3_ENDPOINT must be an origin without credentials");
+    if (
+      endpoint.protocol !== "https:" &&
+      !(
+        parsed.NODE_ENV !== "production" &&
+        endpoint.protocol === "http:" &&
+        ["127.0.0.1", "localhost", "[::1]"].includes(endpoint.hostname)
+      )
+    )
+      throw new Error(
+        "Object storage requires HTTPS except loopback development",
+      );
+  }
   const database = new URL(parsed.DATABASE_URL);
   if (!["postgres:", "postgresql:"].includes(database.protocol))
     throw new Error("DATABASE_URL must use the Postgres protocol");

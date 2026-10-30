@@ -21,8 +21,23 @@ await writeFile(envPath, env.trimEnd() + "\nLOCAL_SELF_SERVICE_SIGNUP=true\n", {
   mode: 0o600,
 });
 for (const args of [
-  ["compose", "-p", "freightnautdocs-dev", "down", "--volumes"],
-  ["compose", "-p", "freightnautdocs-dev", "up", "-d"],
+  [
+    "compose",
+    "-p",
+    "freightnautdocs-dev",
+    "--profile",
+    "storage",
+    "down",
+    "--volumes",
+  ],
+  [
+    "compose",
+    "-p",
+    "freightnautdocs-dev",
+    ...(process.env.DOCUMENT_STORAGE === "s3" ? ["--profile", "storage"] : []),
+    "up",
+    "-d",
+  ],
 ]) {
   const result = spawnSync("docker", args, { cwd: root, stdio: "inherit" });
   if (result.status !== 0) throw new Error("Local service reset failed.");

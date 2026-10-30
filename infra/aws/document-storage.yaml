@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Private versioned PDF storage for Freightnaut Docs. Deploy separately; no cloud resources are provisioned by local setup.
+Parameters:
+  DocumentBucketName:
+    Type: String
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "[a-z0-9][a-z0-9.-]+[a-z0-9]"
+Resources:
+  DocumentBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName:
+        Ref: DocumentBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  DocumentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: DocumentBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RequireTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - Fn::GetAtt: [DocumentBucket, Arn]
+              - Fn::Sub: "${DocumentBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: RequireConditionalObjectCreation
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource:
+              Fn::Sub: "${DocumentBucket.Arn}/drafts/*"
+            Condition:
+              "Null":
+                s3:if-none-match: "true"
+  ApiReadPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Attach to the API workload role; no bucket listing, mutation or deletion.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: [s3:GetObject, s3:GetObjectVersion]
+            Resource:
+              Fn::Sub: "${DocumentBucket.Arn}/drafts/*"
+  WorkerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Attach to the document worker workload role; no object deletion.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: [s3:GetObject, s3:GetObjectVersion]
+            Resource:
+              Fn::Sub: "${DocumentBucket.Arn}/drafts/*"
+          - Effect: Allow
+            Action: s3:PutObject
+            Resource:
+              Fn::Sub: "${DocumentBucket.Arn}/drafts/*"
+            Condition:
+              StringEquals:
+                s3:if-none-match: "*"
+Outputs:
+  BucketName:
+    Value:
+      Ref: DocumentBucket
+  ApiReadPolicyArn:
+    Value:
+      Ref: ApiReadPolicy
+  WorkerPolicyArn:
+    Value:
+      Ref: WorkerPolicy

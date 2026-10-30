@@ -144,7 +144,7 @@ export async function buildApp(config: AppConfig, pool: Pool) {
   registerTenancy(app, pool, config);
   registerOnboarding(app, pool, config);
   registerShipments(app, pool, config);
-  registerDocumentJobs(app, pool);
+  registerDocumentJobs(app, pool, config);
   if (config.NODE_ENV === "production" || config.SERVE_WEB === "true") {
     await app.register(staticPlugin, {
       root: resolve("apps/web/dist"),
